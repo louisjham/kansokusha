@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app.main import bp
 from app.models import Employee, SocialMediaAccount, ScrapingJob, AnalysisResult, User, AuditLog, get_setting, set_setting
 import json
-from app.services.ollama_service import OllamaService
+
 from app import db
 from sqlalchemy import func, case, text
 from datetime import datetime, timedelta
@@ -69,14 +69,9 @@ def system_status():
         return redirect(url_for('main.dashboard'))
     
     # Check Ollama service
-    try:
-        ollama_service = OllamaService()
-        ollama_status = ollama_service.test_connection()
-    except Exception as e:
-        ollama_status = {
-            'status': 'error',
-            'message': f'Failed to initialize Ollama service: {str(e)}'
-        }
+    # Check Ollama service removed
+    ollama_status = {'status': 'info', 'message': 'Ollama service removed'}
+
     
     # Database status
     try:
@@ -135,7 +130,8 @@ def settings():
     """Application settings page.
 
     - Platform managers and system admins can set MAX_POSTS_PER_SCRAPE.
-    - Only system admins can set OLLAMA_MODEL and APIFY_API_TOKEN.
+    - Platform managers and system admins can set MAX_POSTS_PER_SCRAPE.
+    - Only system admins can set APIFY_API_TOKEN.
     """
     # Permissions
     can_edit_max_posts = current_user.role in ['platform_manager', 'system_admin']
@@ -158,14 +154,6 @@ def settings():
                     flash('MAX_POSTS_PER_SCRAPE must be a positive integer.', 'error')
 
         if is_admin:
-            # Prefer radio-selected model; allow custom override if provided
-            selected_model = request.form.get('OLLAMA_MODEL')
-            custom_model = request.form.get('OLLAMA_MODEL_CUSTOM')
-            final_model = (custom_model or '').strip() or (selected_model or '').strip()
-            if final_model:
-                set_setting('OLLAMA_MODEL', final_model, updated_by=current_user.username)
-                updates['OLLAMA_MODEL'] = final_model
-
             apify_token = request.form.get('APIFY_API_TOKEN')
             if apify_token is not None and apify_token.strip() != '':
                 set_setting('APIFY_API_TOKEN', apify_token.strip(), updated_by=current_user.username)
@@ -191,7 +179,7 @@ def settings():
 
             # Provider selection
             provider = request.form.get('ANALYSIS_PROVIDER')
-            if provider in ['ollama', 'gemini']:
+            if provider in ['gemini', 'z_ai', 'openrouter']:
                 set_setting('ANALYSIS_PROVIDER', provider, updated_by=current_user.username)
                 updates['ANALYSIS_PROVIDER'] = provider
 
@@ -200,6 +188,38 @@ def settings():
             if gemini_key is not None and gemini_key.strip() != '':
                 set_setting('GOOGLE_API_KEY', gemini_key.strip(), updated_by=current_user.username)
                 updates['GOOGLE_API_KEY'] = '***saved***'
+
+            # Z.AI settings
+            zai_key = request.form.get('ZAI_API_KEY')
+            if zai_key is not None and zai_key.strip() != '':
+                set_setting('ZAI_API_KEY', zai_key.strip(), updated_by=current_user.username)
+                updates['ZAI_API_KEY'] = '***saved***'
+            
+            zai_model = request.form.get('ZAI_MODEL')
+            if zai_model:
+                set_setting('ZAI_MODEL', zai_model.strip(), updated_by=current_user.username)
+                updates['ZAI_MODEL'] = zai_model
+
+            zai_base = request.form.get('ZAI_API_BASE')
+            if zai_base:
+                set_setting('ZAI_API_BASE', zai_base.strip(), updated_by=current_user.username)
+                updates['ZAI_API_BASE'] = zai_base
+            
+            # OpenRouter settings
+            openrouter_key = request.form.get('OPENROUTER_API_KEY')
+            if openrouter_key is not None and openrouter_key.strip() != '':
+                set_setting('OPENROUTER_API_KEY', openrouter_key.strip(), updated_by=current_user.username)
+                updates['OPENROUTER_API_KEY'] = '***saved***'
+                
+            openrouter_model = request.form.get('OPENROUTER_MODEL')
+            if openrouter_model:
+                set_setting('OPENROUTER_MODEL', openrouter_model.strip(), updated_by=current_user.username)
+                updates['OPENROUTER_MODEL'] = openrouter_model
+
+            openrouter_base = request.form.get('OPENROUTER_API_BASE')
+            if openrouter_base:
+                set_setting('OPENROUTER_API_BASE', openrouter_base.strip(), updated_by=current_user.username)
+                updates['OPENROUTER_API_BASE'] = openrouter_base
 
         # Assessments (managers and admins can configure)
         if current_user.role in ['platform_manager', 'system_admin']:
@@ -220,18 +240,18 @@ def settings():
         max_posts_val = str(int(current_app.config.get('MAX_POSTS_PER_SCRAPE', 1000)))
     current_settings = {
         'MAX_POSTS_PER_SCRAPE': max_posts_val,
-        'OLLAMA_MODEL': get_setting('OLLAMA_MODEL', current_app.config.get('OLLAMA_MODEL', 'llama2')),
+        'ZAI_MODEL': get_setting('ZAI_MODEL', current_app.config.get('ZAI_MODEL', 'glm-4-flash')),
+        'ZAI_API_BASE': get_setting('ZAI_API_BASE', current_app.config.get('ZAI_API_BASE', 'https://open.bigmodel.cn/api/paas/v4/')),
+        'OPENROUTER_MODEL': get_setting('OPENROUTER_MODEL', current_app.config.get('OPENROUTER_MODEL', 'google/gemini-2.0-flash-001')),
+        'OPENROUTER_API_BASE': get_setting('OPENROUTER_API_BASE', current_app.config.get('OPENROUTER_API_BASE', 'https://openrouter.ai/api/v1/')),
     }
+    
     # Do not display APIFY token value for security; show placeholder if set
     token_present = bool(get_setting('APIFY_API_TOKEN', None) or current_app.config.get('APIFY_API_TOKEN'))
 
     # Load available Ollama models for administrator selection
     available_models = []
-    if is_admin:
-        try:
-            available_models = OllamaService().get_available_models() or []
-        except Exception:
-            available_models = []
+
 
     # Load assessment dimensions
     default_dims = [
@@ -251,7 +271,7 @@ def settings():
     # Analysis settings current values
     analysis_mode = get_setting('ANALYSIS_MODE', 'single')
     prompt_extra = get_setting('PROMPT_EXTRA_INSTRUCTIONS', '') or ''
-    analysis_provider = get_setting('ANALYSIS_PROVIDER', 'ollama') or 'ollama'
+    analysis_provider = get_setting('ANALYSIS_PROVIDER', 'gemini') or 'gemini'
     gemini_key_present = bool(get_setting('GOOGLE_API_KEY', None))
     prompt_overrides = {
         'PROMPT_RISK': get_setting('PROMPT_RISK', '') or '',

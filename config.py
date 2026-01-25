@@ -13,9 +13,17 @@ class Config:
     # Apify Configuration
     APIFY_API_TOKEN = os.environ.get('APIFY_API_TOKEN')
     
-    # Ollama Configuration
-    OLLAMA_API_URL = os.environ.get('OLLAMA_API_URL', 'http://localhost:11434')
-    OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama2')
+
+
+    # Z.AI Configuration
+    ZAI_API_KEY = os.environ.get('ZAI_API_KEY')
+    ZAI_API_BASE = os.environ.get('ZAI_API_BASE', 'https://open.bigmodel.cn/api/paas/v4/')
+    ZAI_MODEL = os.environ.get('ZAI_MODEL', 'glm-4-flash') # Default model for Z.AI
+
+    # OpenRouter Configuration
+    OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+    OPENROUTER_API_BASE = os.environ.get('OPENROUTER_API_BASE', 'https://openrouter.ai/api/v1/')
+    OPENROUTER_MODEL = os.environ.get('OPENROUTER_MODEL', 'google/gemini-2.0-flash-001') # Default model for OpenRouter
     
     # Security
     BCRYPT_LOG_ROUNDS = int(os.environ.get('BCRYPT_LOG_ROUNDS', 12))
