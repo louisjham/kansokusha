@@ -5,19 +5,26 @@
 <p><strong>Status:</strong> {{ job.status }}</p>
 <p><strong>Account:</strong> {{ job.social_account.platform|capitalize }} / {{ job.social_account.username }}</p>
 <p><strong>Posts scraped:</strong> {{ job.posts_scraped }}</p>
-{% if job.status in ['running','pending'] %}
 <form method="post" action="{{ url_for('scraping.refresh_job_status', job_id=job.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <button class="btn btn-outline-secondary">Refresh</button>
+  <button class="btn btn-outline-secondary">Refresh Status / Logs</button>
 </form>
-{% endif %}
 
 <h5 class="mt-4">Posts</h5>
 <ul>
   {% for p in posts %}
-    <li>[{{ p.platform }}] {{ p.created_at }} - {{ p.text[:140] }}{% if p.url %} <a href="{{ p.url }}" target="_blank">link</a>{% endif %}</li>
+  <li>[{{ p.platform }}] {{ p.created_at }} - {{ p.text[:140] }}{% if p.url %} <a href="{{ p.url }}"
+      target="_blank">link</a>{% endif %}</li>
   {% else %}
-    <li>No posts yet.</li>
+  <li>No posts yet.</li>
   {% endfor %}
 </ul>
+
+<h5 class="mt-4">Execution Logs</h5>
+<div class="card bg-light">
+  <div class="card-body">
+    <pre class="mb-0"
+      style="max-height: 400px; overflow-y: auto;"><code>{{ job.logs or 'No logs available.' }}</code></pre>
+  </div>
+</div>
 {% endblock %}

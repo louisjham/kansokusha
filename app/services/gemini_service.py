@@ -504,6 +504,9 @@ ANALYTICAL STANCE:
         return prompt
 
     def _generate_response(self, prompt: str) -> str:
+        # Log the full prompt payload for audit purposes
+        logger.info(f"FULL PROMPT PAYLOAD (Gemini):\n{prompt}")
+
         headers = {"Content-Type": "application/json"}
         params = {"key": self.api_key}
         # Ask for JSON output explicitly
@@ -552,11 +555,102 @@ ANALYTICAL STANCE:
             'red_flags': data.get('red_flags', []) or [],
             'positive_indicators': data.get('positive_indicators', []) or [],
             'confidence_score': data.get('confidence_score'),
-            'summary': data.get('summary', ''),
+            'summary': data.get('summary', '') or data.get('executive_summary', ''),
             'posts_analyzed': posts_count,
             'analysis_model': self.model,
             'raw_response': json.dumps(data)[:4000],
         }
+
+        # --- Deep Analysis Field Mapping ---
+        # Map complex nested JSON fields into the text columns if they exist
+        
+        # 1. Character Assessment Augmentation
+        char_sections = []
+        if result['character_assessment']:
+            char_sections.append(result['character_assessment'])
+        
+        if data.get('psycholinguistic_profile'):
+            pp = data['psycholinguistic_profile']
+            char_sections.append("\n### Psycholinguistic Profile")
+            for k, v in pp.items():
+                char_sections.append(f"**{k.replace('_', ' ').title()}:** {v}")
+        
+        if data.get('ideological_mapping'):
+            im = data['ideological_mapping']
+            char_sections.append("\n### Ideological Mapping")
+            for k, v in im.items():
+                val = v if isinstance(v, str) else json.dumps(v)
+                char_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        if data.get('authenticity_assessment'):
+            aa = data['authenticity_assessment']
+            char_sections.append("\n### Authenticity Assessment")
+            for k, v in aa.items():
+                val = v if isinstance(v, str) else json.dumps(v)
+                char_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        result['character_assessment'] = "\n\n".join(char_sections)
+
+        # 2. Behavioral Insights Augmentation
+        beh_sections = []
+        if result['behavioral_insights']:
+            beh_sections.append(result['behavioral_insights'])
+
+        # Behavioral Matrix
+        if data.get('behavioral_matrix'):
+            bm = data['behavioral_matrix']
+            beh_sections.append("\n### Behavioral Matrix")
+            for k, v in bm.items():
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {v}")
+
+        # Psychological Vulnerabilities
+        if data.get('psychological_vulnerabilities'):
+            pv = data['psychological_vulnerabilities']
+            beh_sections.append("\n### Psychological Vulnerabilities")
+            for k, v in pv.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        # Threat Surface
+        if data.get('threat_surface'):
+            ts = data['threat_surface']
+            beh_sections.append("\n### Threat Surface")
+            for k, v in ts.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        # Social Network
+        if data.get('social_network'):
+            sn = data['social_network']
+            beh_sections.append("\n### Social Network Analysis")
+            for k, v in sn.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+        
+        # Temporal Analysis
+        if data.get('temporal_analysis'):
+            ta = data['temporal_analysis']
+            beh_sections.append("\n### Temporal Analysis")
+            for k, v in ta.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        # Protective Factors
+        if data.get('protective_factors'):
+            pf = data['protective_factors']
+            beh_sections.append("\n### Protective Factors")
+            for k, v in pf.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        # Predictive Assessment
+        if data.get('predictive_assessment'):
+            pa = data['predictive_assessment']
+            beh_sections.append("\n### Predictive Assessment")
+            for k, v in pa.items():
+                val = v if isinstance(v, str) else json.dumps(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
         # Merge assessments into behavioral_insights for rendering in Specific Assessments panel
         assessments = data.get('assessments') or {}
         if isinstance(assessments, dict) and assessments:
@@ -576,10 +670,10 @@ ANALYTICAL STANCE:
                     parts.append(f"{label}: {v}")
             if parts:
                 joined = "\n".join(parts)
-                if result['behavioral_insights']:
-                    result['behavioral_insights'] += "\n\nAssessments:\n" + joined
-                else:
-                    result['behavioral_insights'] = "Assessments:\n" + joined
+                beh_sections.append("\n### Specific Assessments\n" + joined)
+        
+        result['behavioral_insights'] = "\n\n".join(beh_sections)
+
         return result
 
     def test_connection(self) -> Dict[str, Any]:

@@ -183,14 +183,23 @@ def refresh_job_status(job_id):
     
     job = ScrapingJob.query.get_or_404(job_id)
     
-    if job.status not in ['running', 'pending']:
-        flash('Job is not in a refreshable state.', 'warning')
-        return redirect(url_for('scraping.view_job', job_id=job_id))
+    # Allow refreshing for any status to fetch logs or updates
+    # if job.status not in ['running', 'pending']:
+    #     flash('Job is not in a refreshable state.', 'warning')
+    #     return redirect(url_for('scraping.view_job', job_id=job_id))
     
     try:
         apify_service = ApifyService()
         status_info = apify_service.get_run_status(job.apify_run_id)
         
+        # Always fetch logs for visibility
+        try:
+            logs = apify_service.get_run_log(job.apify_run_id)
+            if logs:
+                job.logs = logs
+        except Exception as e:
+            logger.warning(f"Could not fetch logs for job {job.id}: {str(e)}")
+
         # Update job status
         if status_info['status'] == 'SUCCEEDED':
             # Get results
@@ -203,14 +212,17 @@ def refresh_job_status(job_id):
             job.set_posts(processed_posts)
             job.completed_at = datetime.utcnow()
             
-            flash(f'Job completed successfully. Scraped {len(processed_posts)} posts.', 'success')
+            if len(processed_posts) == 0:
+                 flash('Job completed but returned 0 posts. Check the logs below for details.', 'warning')
+            else:
+                 flash(f'Job completed successfully. Scraped {len(processed_posts)} posts.', 'success')
             
         elif status_info['status'] in ['FAILED', 'ABORTED', 'TIMED-OUT']:
             job.status = 'failed'
             job.error_message = status_info.get('error_message', f"Job {status_info['status'].lower()}")
             job.completed_at = datetime.utcnow()
             
-            flash(f'Job failed: {job.error_message}', 'error')
+            flash(f'Job failed: {job.error_message}. Check logs below.', 'error')
         
         else:
             flash(f'Job status: {status_info["status"]}', 'info')

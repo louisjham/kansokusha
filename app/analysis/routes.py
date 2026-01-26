@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify, make_response
+from flask import render_template, redirect, url_for, flash, request, make_response
 from flask_login import login_required, current_user
 from app.analysis import bp
 from app.models import Employee, AnalysisResult, ScrapingJob, AuditLog, SocialMediaAccount
@@ -9,6 +9,7 @@ from app import db
 from datetime import datetime
 import logging
 import csv
+import json
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -107,6 +108,47 @@ def view_analysis(id):
                          scraping_jobs=scraping_jobs,
                          post_refs=post_refs)
 
+@bp.route('/<int:id>/evidence')
+@login_required
+def view_evidence(id):
+    """View detailed evidence and foundational data for an analysis."""
+    if not current_user.can_view_reports():
+        flash('Access denied.', 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    analysis = AnalysisResult.query.get_or_404(id)
+    
+    # Get scraping jobs for post listing
+    scraping_jobs = ScrapingJob.query.filter(
+        ScrapingJob.id.in_(analysis.scraping_job_ids)
+    ).all()
+
+    # Rebuild post reference map
+    post_refs = []
+    try:
+        idx = 1
+        for job_id in analysis.scraping_job_ids:
+            job = next((j for j in scraping_jobs if j.id == job_id), None)
+            if not job:
+                continue
+            posts = job.get_posts() or []
+            for p in posts:
+                url = p.get('url') or p.get('permalink') or p.get('link')
+                if not url:
+                    url = f"/scraping/job/{job.id}"
+                post_refs.append({
+                    'index': idx,
+                    'url': url,
+                    'created_at': p.get('created_at')
+                })
+                idx += 1
+    except Exception:
+        post_refs = []
+
+    return render_template('analysis/view_evidence.html',
+                         analysis=analysis,
+                         post_refs=post_refs)
+
 @bp.route('/start/<int:employee_id>', methods=['POST'])
 @login_required
 def start_analysis(employee_id):
@@ -202,11 +244,13 @@ def start_analysis(employee_id):
             risk_score=analysis_result.get('risk_score'),
             character_assessment=analysis_result.get('character_assessment'),
             behavioral_insights=analysis_result.get('behavioral_insights'),
+            summary=analysis_result.get('summary') or analysis_result.get('executive_summary'),
             red_flags=analysis_result.get('red_flags'),
             positive_indicators=analysis_result.get('positive_indicators'),
             posts_analyzed=analysis_result.get('posts_analyzed', len(all_posts)),
             analysis_model=analysis_result.get('analysis_model'),
             confidence_score=analysis_result.get('confidence_score'),
+            raw_data=json.loads(analysis_result.get('raw_response', '{}')) if isinstance(analysis_result.get('raw_response'), str) else analysis_result.get('raw_response'),
             analyzed_by=current_user.username
         )
         

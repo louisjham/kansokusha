@@ -147,6 +147,23 @@ class ApifyService:
                 'error_message': str(e)
             }
     
+    def get_run_log(self, run_id):
+        """
+        Get the log of a scraping run.
+        
+        Args:
+            run_id (str): Apify run ID
+            
+        Returns:
+            str: Run log content
+        """
+        try:
+            log = self.client.run(run_id).log().get()
+            return log
+        except Exception as e:
+            logger.error(f"Error getting run log for {run_id}: {str(e)}")
+            return f"Failed to retrieve logs: {str(e)}"
+    
     def get_run_results(self, run_id):
         """
         Get the results of a completed scraping run.

@@ -112,6 +112,7 @@ class ScrapingJob(db.Model):
     status = db.Column(db.String(50), default='pending')  # pending, running, completed, failed
     posts_scraped = db.Column(db.Integer, default=0)
     error_message = db.Column(db.Text, nullable=True)
+    logs = db.Column(db.Text, nullable=True)  # Store execution logs
     scraped_data = db.Column(db.JSON, nullable=True)  # Store scraped posts as JSON
     started_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
@@ -149,6 +150,10 @@ class AnalysisResult(db.Model):
     behavioral_insights = db.Column(db.Text, nullable=True)
     red_flags = db.Column(db.JSON, nullable=True)  # List of identified red flags
     positive_indicators = db.Column(db.JSON, nullable=True)  # List of positive indicators
+    
+    # New columns for separating Clinical vs Foundational data
+    summary = db.Column(db.Text, nullable=True)  # Executive summary
+    raw_data = db.Column(db.JSON, nullable=True)  # Full raw JSON response from AI
     
     # Analysis metadata
     posts_analyzed = db.Column(db.Integer, default=0)

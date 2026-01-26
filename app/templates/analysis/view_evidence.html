@@ -1,0 +1,107 @@
+{% extends 'layout.html' %}
+{% block title %}Foundational Data & Evidence{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>Foundational Data: {{ analysis.employee.full_name }}</h3>
+    <a class="btn btn-outline-secondary" href="{{ url_for('analysis.view_analysis', id=analysis.id) }}">
+        <i class="bi bi-arrow-left"></i> Back to Clinical Report
+    </a>
+</div>
+
+<ul class="nav nav-tabs mb-4" id="evidenceTabs" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" id="forensic-tab" data-bs-toggle="tab" data-bs-target="#forensic" type="button"
+            role="tab" aria-selected="true">Forensic Profile</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw" type="button" role="tab"
+            aria-selected="false">Raw JSON Data</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="posts-tab" data-bs-toggle="tab" data-bs-target="#posts" type="button" role="tab"
+            aria-selected="false">Source Posts</button>
+    </li>
+</ul>
+
+<div class="tab-content" id="evidenceTabsContent">
+    <!-- Forensic Profile Tab -->
+    <div class="tab-pane fade show active" id="forensic" role="tabpanel" aria-labelledby="forensic-tab">
+        <div class="row">
+            <div class="col-md-12">
+                {% if analysis.character_assessment %}
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Psycholinguistic & Character Assessment</h5>
+                    </div>
+                    <div class="card-body markdown-content">
+                        {{ analysis.character_assessment|replace('\n', '<br>')|safe }}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if analysis.behavioral_insights %}
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">Behavioral Insights & Deep Analysis</h5>
+                    </div>
+                    <div class="card-body markdown-content">
+                        {{ analysis.behavioral_insights|replace('\n', '<br>')|safe }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Raw Data Tab -->
+    <div class="tab-pane fade" id="raw" role="tabpanel" aria-labelledby="raw-tab">
+        <div class="card bg-light">
+            <div class="card-body">
+                <pre
+                    style="max-height: 800px; overflow-y: auto;"><code>{{ analysis.raw_data | tojson(indent=2) }}</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Source Posts Tab -->
+    <div class="tab-pane fade" id="posts" role="tabpanel" aria-labelledby="posts-tab">
+        <div class="card">
+            <div class="card-body">
+                <h5>Scraped Posts Corpus</h5>
+                <hr>
+                <div class="list-group">
+                    {% for post in post_refs %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Post #{{ post.index }}</h6>
+                            <small>{{ post.created_at }}</small>
+                        </div>
+                        <p class="mb-1 text-muted">
+                            <a href="{{ post.url }}" target="_blank">View on Platform <i
+                                    class="bi bi-box-arrow-up-right"></i></a>
+                        </p>
+                    </div>
+                    {% else %}
+                    <p>No posts referenced.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .markdown-content strong {
+        color: #2c3e50;
+    }
+
+    .markdown-content h3 {
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        font-size: 1.25rem;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 0.5rem;
+    }
+</style>
+
+{% endblock %}

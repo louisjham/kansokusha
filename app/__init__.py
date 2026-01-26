@@ -5,10 +5,45 @@ from config import config
 import os
 from flask_wtf.csrf import CSRFProtect, CSRFError
 
+from flask_migrate import Migrate
+
 # Initialize extensions
 db = SQLAlchemy()
+migrate = Migrate()
 login_manager = LoginManager()
 csrf = CSRFProtect()
+
+def configure_logging(app):
+    from pythonjsonlogger import jsonlogger
+    import logging.handlers
+
+    log_handler = logging.handlers.RotatingFileHandler(
+        'crystallens.log', maxBytes=10000000, backupCount=5
+    )
+    formatter = jsonlogger.JsonFormatter(
+        '%(asctime)s %(levelname)s %(name)s %(message)s'
+    )
+    log_handler.setFormatter(formatter)
+    
+    # Also log to console
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    # Remove default handlers to prevent duplication
+    del app.logger.handlers[:]
+    
+    # Configure root logger only (app.logger propagates to it)
+    root_logger = logging.getLogger()
+    # Clear existing handlers
+    if root_logger.handlers:
+        root_logger.handlers.clear()
+        
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(log_handler)
+    root_logger.addHandler(console_handler)
+    
+    # Ensure app logger propagates
+    app.logger.propagate = True
 
 def create_app(config_name=None):
     """Application factory pattern."""
@@ -16,6 +51,8 @@ def create_app(config_name=None):
         config_name = os.environ.get('FLASK_ENV', 'default')
     
     app = Flask(__name__)
+    configure_logging(app)
+    
     cfg_class = config[config_name]
     app.config.from_object(cfg_class)
     # Run optional per-environment initialization
@@ -24,6 +61,7 @@ def create_app(config_name=None):
     
     # Initialize extensions with app
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
     

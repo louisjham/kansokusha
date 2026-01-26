@@ -2,6 +2,7 @@ from openai import OpenAI
 from flask import current_app
 import logging
 import json
+from typing import List, Dict
 from app.models import get_setting
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,9 @@ class OpenAICompatibleService:
             # Call the API
             logger.info(f"Sending analysis request to {self.provider_type} using model {self.model}")
             
+            # Log the full prompt payload for audit purposes
+            logger.info(f"FULL PROMPT PAYLOAD:\n{prompt}")
+            
             chat_completion = self.client.chat.completions.create(
                 messages=[
                     {
@@ -71,12 +75,19 @@ class OpenAICompatibleService:
                         "content": prompt,
                     }
                 ],
-                model=self.model,
-                response_format={ "type": "json_object" } # Using JSON mode which is supported by Z.AI and many OpenRouter models
+                model=self.model or "gpt-3.5-turbo", # Fallback to avoid None type error
+                response_format={ "type": "json_object" }, # Using JSON mode which is supported by Z.AI and many OpenRouter models
+                max_tokens=4096
             )
             
             response_content = chat_completion.choices[0].message.content
             
+            if not response_content:
+                raise ValueError("Empty response received from AI provider")
+            
+            # Log the raw response content for debugging truncation issues
+            logger.info(f"RAW API RESPONSE ({len(response_content)} chars):\n{response_content}")
+
             # Parse JSON
             try:
                 # Clean up if markdown code blocks are returned even in JSON mode
@@ -85,10 +96,12 @@ class OpenAICompatibleService:
                 elif response_content.startswith("```"):
                     response_content = response_content.replace("```", "")
                     
+                
                 result = json.loads(response_content)
+                result = self._normalize_result(result, len(posts))
                 result['analysis_model'] = f"{self.provider_type}:{self.model}"
                 return result
-                
+            
             except json.JSONDecodeError as e:
                 logger.error(f"JSON Parse Error from {self.provider_type}: {e}")
                 logger.error(f"Raw response: {response_content}")
@@ -99,10 +112,127 @@ class OpenAICompatibleService:
                     "red_flags": ["System error: Invalid JSON response from AI provider"],
                     "analysis_model": f"{self.provider_type}:{self.model}"
                 }
-                
+            
         except Exception as e:
             logger.error(f"API Error ({self.provider_type}): {str(e)}")
             raise
+
+    def _normalize_result(self, data: Dict[str, Any], posts_count: int) -> Dict[str, Any]:
+        """Normalize and pack deep analysis fields into standard model fields."""
+        result = {
+            'risk_score': data.get('risk_score'),
+            'character_assessment': data.get('character_assessment', ''),
+            'behavioral_insights': data.get('behavioral_insights', ''),
+            'red_flags': data.get('red_flags', []) or [],
+            'positive_indicators': data.get('positive_indicators', []) or [],
+            'confidence_score': data.get('confidence_score'),
+            'summary': data.get('summary', '') or data.get('executive_summary', ''),
+            'posts_analyzed': posts_count,
+            'analysis_model': f"{self.provider_type}:{self.model}",
+            'raw_response': json.dumps(data)[:4000],
+            # Pass through raw deep fields for potential future use or debugging
+            'psycholinguistic_profile': data.get('psycholinguistic_profile'),
+            'ideological_mapping': data.get('ideological_mapping'),
+            'authenticity_assessment': data.get('authenticity_assessment'),
+            'behavioral_matrix': data.get('behavioral_matrix'),
+            'psychological_vulnerabilities': data.get('psychological_vulnerabilities'),
+            'threat_surface': data.get('threat_surface'),
+            'social_network': data.get('social_network'),
+            'temporal_analysis': data.get('temporal_analysis'),
+            'protective_factors': data.get('protective_factors'),
+            'predictive_assessment': data.get('predictive_assessment'),
+        }
+
+        # --- Deep Analysis Field Mapping ---
+        
+        # 1. Character Assessment Augmentation
+        char_sections = []
+        if result['character_assessment']:
+            char_sections.append(result['character_assessment'])
+        
+        if data.get('psycholinguistic_profile'):
+            pp = data['psycholinguistic_profile']
+            char_sections.append("\n### Psycholinguistic Profile")
+            for k, v in pp.items():
+                char_sections.append(f"**{k.replace('_', ' ').title()}:** {v}")
+        
+        if data.get('ideological_mapping'):
+            im = data['ideological_mapping']
+            char_sections.append("\n### Ideological Mapping")
+            for k, v in im.items():
+                val = v if isinstance(v, str) else json.dumps(v)
+                char_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        if data.get('authenticity_assessment'):
+            aa = data['authenticity_assessment']
+            char_sections.append("\n### Authenticity Assessment")
+            for k, v in aa.items():
+                val = v if isinstance(v, str) else json.dumps(v)
+                char_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        result['character_assessment'] = "\n\n".join(char_sections)
+
+        # 2. Behavioral Insights Augmentation
+        beh_sections = []
+        if result['behavioral_insights']:
+            beh_sections.append(result['behavioral_insights'])
+
+        # Behavioral Matrix
+        if data.get('behavioral_matrix'):
+            bm = data['behavioral_matrix']
+            beh_sections.append("\n### Behavioral Matrix")
+            for k, v in bm.items():
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {v}")
+
+        # Psychological Vulnerabilities
+        if data.get('psychological_vulnerabilities'):
+            pv = data['psychological_vulnerabilities']
+            beh_sections.append("\n### Psychological Vulnerabilities")
+            for k, v in pv.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        # Threat Surface
+        if data.get('threat_surface'):
+            ts = data['threat_surface']
+            beh_sections.append("\n### Threat Surface")
+            for k, v in ts.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        # Social Network
+        if data.get('social_network'):
+            sn = data['social_network']
+            beh_sections.append("\n### Social Network Analysis")
+            for k, v in sn.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+        
+        # Temporal Analysis
+        if data.get('temporal_analysis'):
+            ta = data['temporal_analysis']
+            beh_sections.append("\n### Temporal Analysis")
+            for k, v in ta.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        # Protective Factors
+        if data.get('protective_factors'):
+            pf = data['protective_factors']
+            beh_sections.append("\n### Protective Factors")
+            for k, v in pf.items():
+                val = ", ".join(v) if isinstance(v, list) else str(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        # Predictive Assessment
+        if data.get('predictive_assessment'):
+            pa = data['predictive_assessment']
+            beh_sections.append("\n### Predictive Assessment")
+            for k, v in pa.items():
+                val = v if isinstance(v, str) else json.dumps(v)
+                beh_sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+
+        return result
 
     def _build_deep_analysis_prompt(self, posts: List[Dict], employee_info: Dict, selected_checks=None) -> str:
         """Build enhanced deep analysis prompt for comprehensive psychological profiling."""
