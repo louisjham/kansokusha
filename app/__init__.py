@@ -18,7 +18,7 @@ def configure_logging(app):
     import logging.handlers
 
     log_handler = logging.handlers.RotatingFileHandler(
-        'crystallens.log', maxBytes=10000000, backupCount=5
+        'kansokusha.log', maxBytes=10000000, backupCount=5
     )
     formatter = jsonlogger.JsonFormatter(
         '%(asctime)s %(levelname)s %(name)s %(message)s'

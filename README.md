@@ -1,6 +1,6 @@
 <div align="center">
 
-# CrystalLens
+# Kansokusha
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Made with Flask](https://img.shields.io/badge/Made%20with-Flask-000?logo=flask&logoColor=white)](#)
