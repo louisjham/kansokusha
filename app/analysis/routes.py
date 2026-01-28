@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, make_response
+from flask import render_template, redirect, url_for, flash, request, make_response, Response, stream_with_context
 from flask_login import login_required, current_user
 from app.analysis import bp
 from app.models import Employee, AnalysisResult, ScrapingJob, AuditLog, SocialMediaAccount
@@ -152,14 +152,14 @@ def view_evidence(id):
 @bp.route('/start/<int:employee_id>', methods=['POST'])
 @login_required
 def start_analysis(employee_id):
-    """Start AI analysis for an employee."""
+    """Start AI analysis for an employee with streaming progress."""
     if not current_user.can_trigger_scraping():
         flash('Access denied. Platform manager role required.', 'error')
         return redirect(url_for('employees.view_employee', id=employee_id))
     
     employee = Employee.query.get_or_404(employee_id)
     
-    # Get completed scraping jobs for this employee (explicit join to avoid ambiguity)
+    # Get completed scraping jobs
     completed_jobs = (
         ScrapingJob.query
         .join(SocialMediaAccount, ScrapingJob.social_account_id == SocialMediaAccount.id)
@@ -174,128 +174,114 @@ def start_analysis(employee_id):
         flash('No completed scraping jobs found for this employee.', 'error')
         return redirect(url_for('employees.view_employee', id=employee_id))
     
-    try:
-        # Collect all posts from completed jobs
-        all_posts = []
-        job_ids = []
-        
-        for job in completed_jobs:
-            posts = job.get_posts()
-            all_posts.extend(posts)
-            job_ids.append(job.id)
-        
-        if not all_posts:
-            flash('No posts found in completed scraping jobs.', 'error')
-            return redirect(url_for('employees.view_employee', id=employee_id))
-        
-        # Prepare employee information for analysis
+    # Collect posts
+    all_posts = []
+    job_ids = []
+    for job in completed_jobs:
+        posts = job.get_posts()
+        all_posts.extend(posts)
+        job_ids.append(job.id)
+    
+    if not all_posts:
+        flash('No posts found in completed scraping jobs.', 'error')
+        return redirect(url_for('employees.view_employee', id=employee_id))
+    
+    # Initialize provider
+    provider = (get_setting('ANALYSIS_PROVIDER', 'gemini') or 'gemini').lower()
+    if provider == 'z_ai':
+        from app.services.openai_compatible_service import OpenAICompatibleService
+        service = OpenAICompatibleService('z_ai')
+    elif provider == 'openrouter':
+        from app.services.openai_compatible_service import OpenAICompatibleService
+        service = OpenAICompatibleService('openrouter')
+    else:
+        service = GeminiService()
+
+    logger.info(f"Starting streaming analysis for employee {employee.employee_id} using {provider}")
+
+    # Streaming generator
+    def generate():
+        # Yield the progress page shell
+        yield render_template('analysis/progress.html')
+
         employee_info = {
             'employee_id': employee.employee_id,
             'full_name': employee.full_name,
             'department': employee.department,
             'position': employee.position
         }
-        
-        # Initialize analysis provider based on settings
-        provider = (get_setting('ANALYSIS_PROVIDER', 'gemini') or 'gemini').lower()
-        if provider == 'z_ai':
-            from app.services.openai_compatible_service import OpenAICompatibleService
-            service = OpenAICompatibleService('z_ai')
-        elif provider == 'openrouter':
-            from app.services.openai_compatible_service import OpenAICompatibleService
-            service = OpenAICompatibleService('openrouter')
-        else:
-            # Default to Gemini
-            service = GeminiService()
-        
-        logger.info(f"Starting analysis for employee {employee.employee_id} with {len(all_posts)} posts using provider: {provider}")
-        
-        # Run the analysis with selected checks (if any)
-        selected_checks = request.form.getlist('CHECKS')  # values like: risk, character, behavior, redflags, positive, assessments
-        analysis_result = service.analyze_social_media_posts(all_posts, employee_info, selected_checks=selected_checks)
 
-        # Normalize defaults
-        analysis_result['red_flags'] = analysis_result.get('red_flags') or []
-        analysis_result['positive_indicators'] = analysis_result.get('positive_indicators') or []
+        try:
+            # Iterate over the generator from the service
+            generator = service.analyze_comprehensive(all_posts, employee_info)
+            
+            for msg_type, msg_val in generator:
+                if msg_type == 'status':
+                    # Escape single quotes for JS
+                    safe_msg = msg_val.replace("'", "\\'")
+                    yield f"<script>log('{safe_msg}');</script>\n"
+                
+                elif msg_type == 'result':
+                    # Analysis complete, save to DB
+                    analysis_result = msg_val
+                    
+                    # Normalize and pruning logic
+                    analysis_result['red_flags'] = analysis_result.get('red_flags') or []
+                    analysis_result['positive_indicators'] = analysis_result.get('positive_indicators') or []
+                    if analysis_result.get('risk_score') in (None, ''):
+                         rf_count = len(analysis_result['red_flags'])
+                         analysis_result['risk_score'] = float(20 if rf_count == 0 else min(95, rf_count * 15))
 
-        # Risk fallback if missing
-        if analysis_result.get('risk_score') in (None, ''):
-            # Simple heuristic: each red flag +15, cap at 95; if none, 20
-            rf_count = len(analysis_result['red_flags'])
-            fallback_risk = 20 if rf_count == 0 else min(95, rf_count * 15)
-            analysis_result['risk_score'] = float(fallback_risk)
+                    selected_checks = request.form.getlist('CHECKS')
+                    wanted = set(selected_checks or ['risk','character','behavior','redflags','positive','assessments'])
+                    # (Simplified pruning for now, keeping full data for comprehensive view is safer)
 
-        # Prune non-selected sections from persistence (keep only what user chose)
-        wanted = set(selected_checks or ['risk','character','behavior','redflags','positive','assessments'])
-        if 'character' not in wanted:
-            analysis_result['character_assessment'] = ''
-        # Preserve behavioral_insights if assessments were included (assessments are appended there)
-        if 'behavior' not in wanted and 'assessments' not in wanted:
-            analysis_result['behavioral_insights'] = ''
-        if 'redflags' not in wanted:
-            analysis_result['red_flags'] = []
-        if 'positive' not in wanted:
-            analysis_result['positive_indicators'] = []
-        
-        # Create analysis record
-        analysis = AnalysisResult(
-            employee_id=employee_id,
-            scraping_job_ids=job_ids,
-            risk_score=analysis_result.get('risk_score'),
-            character_assessment=analysis_result.get('character_assessment'),
-            behavioral_insights=analysis_result.get('behavioral_insights'),
-            summary=analysis_result.get('summary') or analysis_result.get('executive_summary'),
-            red_flags=analysis_result.get('red_flags'),
-            positive_indicators=analysis_result.get('positive_indicators'),
-            posts_analyzed=analysis_result.get('posts_analyzed', len(all_posts)),
-            analysis_model=analysis_result.get('analysis_model'),
-            confidence_score=analysis_result.get('confidence_score'),
-            raw_data=None,
-            analyzed_by=current_user.username
-        )
-        # Safely handle raw_response
-        raw_resp = analysis_result.get('raw_response')
-        if isinstance(raw_resp, dict):
-            analysis.raw_data = raw_resp
-        elif isinstance(raw_resp, str) and raw_resp:
-            try:
-                analysis.raw_data = json.loads(raw_resp)
-            except Exception:
-                # If parsing fails, store it as a single-key JSON or just a string fallback if DB permits
-                # Since column is JSON, we must store a valid structure.
-                analysis.raw_data = {"_raw_string_dump": raw_resp}
-        
-        db.session.add(analysis)
-        
-        # Log the action
-        audit_log = AuditLog(
-            user_id=current_user.id,
-            action='analysis_started',
-            resource_type='analysis_result',
-            details={
-                'employee_id': employee.employee_id,
-                'posts_analyzed': len(all_posts),
-                'scraping_jobs': job_ids,
-                'risk_score': analysis_result.get('risk_score')
-            },
-            ip_address=request.remote_addr
-        )
-        db.session.add(audit_log)
-        
-        db.session.commit()
-        
-        flash(f'AI analysis completed for {employee.full_name}. Risk score: {analysis.risk_score or "N/A"}', 'success')
-        logger.info(f"Analysis completed for employee {employee.employee_id}, analysis ID: {analysis.id}")
-        
-        return redirect(url_for('analysis.view_analysis', id=analysis.id))
-        
-    except Exception as e:
-        db.session.rollback()
-        error_msg = f"Analysis failed: {str(e)}"
-        flash(error_msg, 'error')
-        logger.error(f"Error during analysis for employee {employee_id}: {str(e)}")
-        
-        return redirect(url_for('employees.view_employee', id=employee_id))
+                    analysis = AnalysisResult(
+                        employee_id=employee_id,
+                        scraping_job_ids=job_ids,
+                        risk_score=analysis_result.get('risk_score'),
+                        character_assessment=analysis_result.get('character_assessment'),
+                        behavioral_insights=analysis_result.get('behavioral_insights'),
+                        summary=analysis_result.get('summary'),
+                        red_flags=analysis_result.get('red_flags'),
+                        positive_indicators=analysis_result.get('positive_indicators'),
+                        posts_analyzed=analysis_result.get('posts_analyzed', len(all_posts)),
+                        analysis_model=analysis_result.get('analysis_model'),
+                        confidence_score=analysis_result.get('confidence_score'),
+                        raw_data=None,
+                        analyzed_by=current_user.username
+                    )
+                    
+                    # Handle raw data
+                    raw_resp = analysis_result.get('raw_response')
+                    if isinstance(raw_resp, str):
+                        try:
+                            analysis.raw_data = json.loads(raw_resp)
+                        except:
+                            analysis.raw_data = {"raw_string": raw_resp}
+                    else:
+                        analysis.raw_data = raw_resp
+
+                    db.session.add(analysis)
+                    
+                    audit_log = AuditLog(
+                        user_id=current_user.id,
+                        action='analysis_started_stream',
+                        resource_type='analysis_result',
+                        details={'employee_id': employee_id, 'provider': provider},
+                        ip_address=request.remote_addr
+                    )
+                    db.session.add(audit_log)
+                    db.session.commit()
+                    
+                    yield f"<script>complete('{url_for('analysis.view_evidence', id=analysis.id)}');</script>\n"
+
+        except Exception as e:
+            logger.error(f"Streaming analysis error: {e}")
+            safe_err = str(e).replace("'", "\\'")
+            yield f"<script>log('Error: {safe_err}', 'error');</script>\n"
+
+    return Response(stream_with_context(generate()))
 
 @bp.route('/export/<int:id>/pdf')
 @login_required

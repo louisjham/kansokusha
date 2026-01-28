@@ -1,0 +1,210 @@
+
+    def analyze_comprehensive(self, posts, employee_info):
+        """
+        Orchestrate a multi-stage comprehensive analysis, yielding status updates.
+        Generator that yields: ('status', 'message') or ('result', final_dict)
+        """
+        if not self.client:
+            yield ('status', 'Error: API key not configured.')
+            return
+
+        yield ('status', 'Initializing comprehensive forensic analysis protocol...')
+        
+        stages = [
+            ('risk', 'Running Risk & Threat Assessment...'),
+            ('psycholinguistic', 'Analyzing Psycholinguistic Profile...'),
+            ('behavioral', 'Constructing Behavioral Matrix...'),
+            ('ideological', 'Mapping Ideological Framework...')
+        ]
+        
+        final_result = {
+            'risk_score': 0,
+            'confidence_score': 0,
+            'red_flags': [],
+            'positive_indicators': [],
+            'character_assessment': '', # Now composite
+            'behavioral_insights': '',  # Now composite
+            'summary': '',
+            'raw_response': {},         # Will store map of stage -> response
+            'posts_analyzed': len(posts),
+            'analysis_model': f"{self.provider_type}:{self.model}"
+        }
+        
+        # Helper to merge lists unique
+        def merge_list(target, source):
+            existing = set(target)
+            for item in source:
+                if item not in existing:
+                    target.append(item)
+                    existing.add(item)
+
+        aggregated_raw = {}
+
+        for stage_name, status_msg in stages:
+            yield ('status', status_msg)
+            
+            prompt = self._build_stage_prompt(stage_name, posts, employee_info)
+            response_data = self._call_api(prompt, stage_name)
+            
+            if not response_data:
+                yield ('status', f'Warning: Stage {stage_name} yielded no data.')
+                continue
+                
+            aggregated_raw[stage_name] = response_data
+            
+            # --- Merge Logic based on Stage ---
+            
+            # 1. Risk Stage -> Core Scores & Flags
+            if stage_name == 'risk':
+                final_result['risk_score'] = response_data.get('risk_score', 0)
+                final_result['confidence_score'] = response_data.get('confidence_score', 0)
+                merge_list(final_result['red_flags'], response_data.get('red_flags', []))
+                merge_list(final_result['positive_indicators'], response_data.get('positive_indicators', []))
+                final_result['summary'] = response_data.get('executive_summary', '')
+
+            # 2. Psycholinguistic Stage -> Character Assessment
+            elif stage_name == 'psycholinguistic':
+                # Format as formatted string
+                sections = []
+                if 'psycholinguistic_profile' in response_data:
+                    pp = response_data['psycholinguistic_profile']
+                    for k, v in pp.items():
+                        sections.append(f"### {k.replace('_', ' ').title()}\n{v}")
+                
+                final_result['character_assessment'] = "\n\n".join(sections)
+
+            # 3. Behavioral Stage -> Behavioral Insights (Assessment & Matrix)
+            elif stage_name == 'behavioral':
+                sections = []
+                if 'behavioral_matrix' in response_data:
+                    bm = response_data['behavioral_matrix']
+                    for k, v in bm.items():
+                        sections.append(f"### {k.replace('_', ' ').title()}\n{v}")
+                
+                if 'social_network' in response_data:
+                     sn = response_data['social_network']
+                     sections.append(f"### Social Network Analysis\n{json.dumps(sn, indent=2)}")
+
+                final_result['behavioral_insights'] = "\n\n".join(sections)
+
+            # 4. Ideological Stage -> Append to Character Assessment
+            elif stage_name == 'ideological':
+                sections = []
+                sections.append("\n## Ideological & Belief Mapping")
+                if 'ideological_mapping' in response_data:
+                    im = response_data['ideological_mapping']
+                    for k, v in im.items():
+                        val = v if isinstance(v, str) else json.dumps(v)
+                        sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+                
+                final_result['character_assessment'] += "\n\n" + "\n\n".join(sections)
+
+            yield ('status', f'Stage {stage_name} complete.')
+
+        # Final Polish
+        final_result['raw_response'] = json.dumps(aggregated_raw)
+        
+        yield ('status', 'Finalizing comprehensive report...')
+        yield ('result', final_result)
+
+    def _call_api(self, prompt, stage_name):
+        """Helper to call API and return dict (or empty dict on error)."""
+        try:
+            logger.info(f"Sending {stage_name} request to {self.provider_type}")
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are an expert social media analyst. Output ONLY valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                model=self.model or "gpt-3.5-turbo",
+                response_format={"type": "json_object"},
+                max_tokens=4096
+            )
+            content = chat_completion.choices[0].message.content
+            # Cleanup common JSON markers
+            content = content.replace("```json", "").replace("```", "").strip()
+            return json.loads(content)
+        except Exception as e:
+            logger.error(f"Error in stage {stage_name}: {e}")
+            return {}
+
+    def _build_stage_prompt(self, stage, posts, employee_info):
+        # Prepare posts context (reused)
+        posts_text = ""
+        for i, post in enumerate(posts[:50], 1):
+             posts_text += f"[{i}] {post.get('created_at', '')} ({post.get('platform', '')}): {post.get('text', '')}\n"
+
+        profile = f"Subject: {employee_info.get('full_name')} ({employee_info.get('position')})"
+
+        if stage == 'risk':
+            return f"""
+            Analyze these posts for {profile}.
+            FOCUS: Security Threats, Radicalization, Red Flags, Insider Threat Risks.
+            
+            POSTS:
+            {posts_text}
+            
+            Return JSON:
+            {{
+                "risk_score": <0-100>,
+                "confidence_score": <0-100>,
+                "red_flags": ["flag 1", "flag 2"],
+                "positive_indicators": ["strength 1", "strength 2"],
+                "executive_summary": "<summary>",
+                "threat_surface": {{ ... }}
+            }}
+            """
+        elif stage == 'psycholinguistic':
+             return f"""
+            Analyze these posts for {profile}.
+            FOCUS: Cognitive Patterns, Emotional Intelligence, Linguistic Markers.
+            
+            POSTS:
+            {posts_text}
+            
+            Return JSON:
+            {{
+                "psycholinguistic_profile": {{
+                    "cognitive_patterns": "<analysis>",
+                    "emotional_landscape": "<analysis>",
+                    "linguistic_markers": "<analysis>"
+                }}
+            }}
+            """
+        elif stage == 'behavioral':
+             return f"""
+            Analyze these posts for {profile}.
+            FOCUS: Posting Habits, Social Dynamics, Self-Presentation.
+            
+            POSTS:
+            {posts_text}
+            
+            Return JSON:
+            {{
+                "behavioral_matrix": {{
+                    "posting_behavior": "<analysis>",
+                    "social_dynamics": "<analysis>",
+                    "self_presentation": "<analysis>"
+                }},
+                "social_network": {{ ... }}
+            }}
+            """
+        elif stage == 'ideological':
+             return f"""
+            Analyze these posts for {profile}.
+            FOCUS: Values, Political/Religious Beliefs, Radicalization Trajectory.
+            
+            POSTS:
+            {posts_text}
+            
+            Return JSON:
+            {{
+                "ideological_mapping": {{
+                    "core_values": "<analysis>",
+                    "political_ideology": "<analysis>",
+                    "religious_framework": "<analysis>",
+                    "radicalization_trajectory": "<analysis>"
+                }}
+            }}
+            """
+        return ""

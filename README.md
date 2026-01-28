@@ -1,83 +1,79 @@
-<div align="center">
+# Social Media Insight & Forensic Analysis Platform
 
-# Kansokusha
+A scalable, AI-driven intelligence platform designed for deep behavioral assessment and risk analysis of social media footprints. This system leverages advanced LLMs (Gemini, Open/Local AI) to perform multi-stage forensic profiling, providing real-time insights into risk factors, character traits, and behavioral patterns.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Made with Flask](https://img.shields.io/badge/Made%20with-Flask-000?logo=flask&logoColor=white)](#)
-[![LLM: Ollama](https://img.shields.io/badge/LLM-Ollama-0b2a2a.svg)](#)
-[![LLM: Gemini](https://img.shields.io/badge/LLM-Gemini-4285F4.svg)](#)
+## Key Features
 
-Evidence‑driven social media analysis for sensitive roles — on‑prem with Ollama or fast in the cloud with Gemini.
+- **Multi-Stage Forensic AI Analysis**:
+  - **Risk Assessment**: Automated detection of security threats, radicalization indicators, and red flags.
+  - **Psycholinguistic Profiling**: Deep analysis of cognitive patterns and emotional landscapes.
+  - **Behavioral Matrix**: Mapping of social dynamics and posting habits.
+  - **Ideological Mapping**: Assessment of values, beliefs, and alignment.
+- **Real-Time Streaming**: Live terminal-style feedback during high-latency AI operations.
+- **Social Media Scraping**: Integrated job management for retrieving data from platforms via Apify.
+- **Role-Based Access Control (RBAC)**: secure hierarchy (Admin, Manager, Analyst) for data protection.
+- **Reporting**: Comprehensive export options (PDF, CSV) with tiered data visibility.
+- **Audit Logging**: Full traceability of all user actions and system events.
 
-</div>
+## Tech Stack
 
+- **Backend**: Python 3.8+, Flask, SQLAlchemy (ORM)
+- **Database**: PostgreSQL (Production) / SQLite (Dev)
+- **AI Integration**: Google Gemini, Z.AI, OpenRouter (OpenAI-compatible)
+- **Frontend**: Bootstrap 5, Jinja2, Marked.js
 
-## ✨ Highlights
-- **Employee & Accounts**: Manage employees and attach social accounts.
-- **Scraping**: Start Twitter/Facebook scrapes via Apify with live job status.
-- **AI Analysis**: Single‑request mode (fast) or staged evidence→assessment (robust).
-- **Specific Assessments**: Political orientation, religious orientation, bias, personal issues, violence tendency, affiliation, suitability.
-- **Reports**: Evidence‑backed narratives with citations, PDF export, CSV exports and dashboards.
-- **RBAC & Auditing**: Roles for admin/manager/reviewer; audit log for sensitive actions.
+## Installation
 
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository_url>
+    cd <repository_drive>
+    ```
 
+2.  **Set up Virtual Environment**:
+    ```bash
+    python -m venv .venv
+    # Windows
+    .venv\Scripts\activate
+    # Linux/Mac
+    source .venv/bin/activate
+    ```
 
-## 🚀 Quickstart (Dev)
-1) Create a venv and install deps
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-2) Configure `.env`
-```bash
-cp .env.example .env
-# APIFY_API_TOKEN=...
-# OLLAMA_API_URL=http://localhost:11434
-# OLLAMA_MODEL=llama3.1:8b (or qwen2.5:7b-instruct)
-# GOOGLE_API_KEY=... (for Gemini)
-# ANALYSIS_PROVIDER=ollama|gemini
-```
-3) Seed an admin
-```bash
-python scripts/seed_admin.py
-```
-4) Run
-```bash
-python run.py
-# http://127.0.0.1:5000
-```
+3.  **Install Dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-## ⚙️ Configuration
-- `DATABASE_URL`: PostgreSQL in prod (SQLite for dev is fine)
-- `APIFY_API_TOKEN`: required for scraping
-- `OLLAMA_API_URL`, `OLLAMA_MODEL`: for local LLM
-- `GOOGLE_API_KEY`: for Gemini
-- Set your provider in Settings or via `ANALYSIS_PROVIDER`
+4.  **Configuration**:
+    Copy `.env.example` to `.env` and populate your API keys:
+    ```bash
+    cp .env.example .env
+    ```
+    *Required keys: `SECRET_KEY`, `DATABASE_URL` (or default sqlite), and AI provider keys (`GOOGLE_API_KEY`, etc.).*
 
-## 🤖 Providers
-- **Ollama (local)**: on‑prem, best when data must not leave your infra
-  - `ollama serve`, `ollama pull llama3.1:8b` (or `qwen2.5:7b-instruct`)
-- **Gemini (cloud)**: fastest JSON formatting and latency
-  - Enter `GOOGLE_API_KEY` in Settings; click “Test Gemini”
+5.  **Initialize Database**:
+    ```bash
+    flask db upgrade
+    # Seed initial admin user
+    python scripts/seed_admin.py
+    ```
 
-## 🔒 Security
-- API keys in `.env` (not committed)
-- Sensitive endpoints protected via RBAC
-- Audit logs for critical actions
+## Usage
 
-## 🗺️ Roadmap
-- Detail level presets (speed vs. depth)
-- Chunk‑and‑synthesize long timelines
-- More providers (OpenAI, Claude) via adapter
+1.  **Start the Server**:
+    ```bash
+    python run.py
+    ```
+    The application typically runs on port `4444`.
 
-## 🤝 Contributing
-PRs welcome. Please open issues first for major changes. Keep secrets out of commits.
+2.  **Workflow**:
+    - Log in as an Admin/Manager.
+    - Create an Employee profile.
+    - Initiate a Scraping Job (e.g., Twitter/X profile).
+    - Once scraping is complete, trigger **"Start Analysis"**.
+    - Watch the real-time forensic assessment.
+    - View and export the final report.
 
-## ⚠️ Disclaimer
-This project is built for educational and research purposes only.
-It is not intended for real employee surveillance or unlawful use.
-Always comply with local laws, regulations, and platform Terms of Service.
+## License
 
-## 📄 License
-MIT — see `LICENSE`.
+Private / Proprietary.

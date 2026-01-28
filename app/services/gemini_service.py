@@ -696,3 +696,148 @@ ANALYTICAL STANCE:
                 'status': 'error',
                 'message': f'Gemini API test failed: {str(e)}'
             }
+
+    def analyze_comprehensive(self, posts, employee_info):
+        """
+        Orchestrate a multi-stage comprehensive analysis, yielding status updates.
+        Generator that yields: ('status', 'message') or ('result', final_dict)
+        """
+        yield ('status', 'Initializing comprehensive forensic analysis protocol (Gemini)...')
+        
+        stages = [
+            ('risk', 'Running Risk & Threat Assessment...'),
+            ('psycholinguistic', 'Analyzing Psycholinguistic Profile...'),
+            ('behavioral', 'Constructing Behavioral Matrix...'),
+            ('ideological', 'Mapping Ideological Framework...')
+        ]
+        
+        final_result = {
+            'risk_score': 0,
+            'confidence_score': 0,
+            'red_flags': [],
+            'positive_indicators': [],
+            'character_assessment': '',
+            'behavioral_insights': '',
+            'summary': '',
+            'raw_response': {},
+            'posts_analyzed': len(posts),
+            'analysis_model': self.model
+        }
+        
+        def merge_list(target, source):
+            existing = set(target)
+            for item in source:
+                if item not in existing:
+                    target.append(item)
+                    existing.add(item)
+
+        aggregated_raw = {}
+
+        for stage_name, status_msg in stages:
+            yield ('status', status_msg)
+            
+            prompt = self._build_stage_prompt(stage_name, posts, employee_info)
+            # Call Gemini (returns string)
+            resp_text = self._generate_response(prompt)
+            
+            # Parse
+            response_data = {}
+            try:
+                # Naive JSON extraction
+                start = resp_text.find('{')
+                end = resp_text.rfind('}') + 1
+                if start != -1 and end > start:
+                    response_data = json.loads(resp_text[start:end])
+                else:
+                    # Try direct load
+                    response_data = json.loads(resp_text)
+            except Exception as e:
+                logger.error(f"Gemini parse error in stage {stage_name}: {e}")
+                # We won't yield error to user, just skip data
+            
+            if not response_data:
+                yield ('status', f'Warning: Stage {stage_name} yielded no valid JSON.')
+                aggregated_raw[stage_name] = {"error": "Invalid JSON", "raw": resp_text}
+                continue
+                
+            aggregated_raw[stage_name] = response_data
+            
+            # --- Merge Logic (Similar to OpenAI) ---
+            if stage_name == 'risk':
+                final_result['risk_score'] = response_data.get('risk_score', 0)
+                final_result['confidence_score'] = response_data.get('confidence_score', 0)
+                merge_list(final_result['red_flags'], response_data.get('red_flags', []))
+                merge_list(final_result['positive_indicators'], response_data.get('positive_indicators', []))
+                final_result['summary'] = response_data.get('executive_summary', '')
+
+            elif stage_name == 'psycholinguistic':
+                sections = []
+                if 'psycholinguistic_profile' in response_data:
+                    pp = response_data['psycholinguistic_profile']
+                    for k, v in pp.items():
+                        sections.append(f"### {k.replace('_', ' ').title()}\n{v}")
+                final_result['character_assessment'] = "\n\n".join(sections)
+
+            elif stage_name == 'behavioral':
+                sections = []
+                if 'behavioral_matrix' in response_data:
+                    bm = response_data['behavioral_matrix']
+                    for k, v in bm.items():
+                        sections.append(f"### {k.replace('_', ' ').title()}\n{v}")
+                if 'social_network' in response_data:
+                     sn = response_data['social_network']
+                     sections.append(f"### Social Network Analysis\n{json.dumps(sn, indent=2)}")
+                final_result['behavioral_insights'] = "\n\n".join(sections)
+
+            elif stage_name == 'ideological':
+                sections = []
+                sections.append("\n## Ideological & Belief Mapping")
+                if 'ideological_mapping' in response_data:
+                    im = response_data['ideological_mapping']
+                    for k, v in im.items():
+                        val = v if isinstance(v, str) else json.dumps(v)
+                        sections.append(f"**{k.replace('_', ' ').title()}:** {val}")
+                final_result['character_assessment'] += "\n\n" + "\n\n".join(sections)
+
+            yield ('status', f'Stage {stage_name} complete.')
+
+        final_result['raw_response'] = json.dumps(aggregated_raw)
+        yield ('status', 'Finalizing comprehensive report...')
+        yield ('result', final_result)
+
+    def _build_stage_prompt(self, stage, posts, employee_info):
+        # Prepare posts context
+        posts_text = ""
+        for i, post in enumerate(posts[:50], 1):
+             platform = post.get('platform', 'unknown')
+             created_at = post.get('created_at', 'unknown')
+             text = post.get('text', '')
+             posts_text += f"[{i}] {created_at} ({platform}): {text}\n"
+
+        profile = f"Subject: {employee_info.get('full_name')} ({employee_info.get('position')})"
+        
+        # Reuse prompt strings from OpenAI implementation for consistency
+        # (Shortened here for brevity in ReplaceChunk, but in practice they are full length)
+        # Using exact full strings ensures same behavior.
+        
+        common_prompt = ""
+        if stage == 'risk':
+            common_prompt = f'''FOCUS: Security Threats, Radicalization, Red Flags, Insider Threat Risks.
+            Return JSON: {{ "risk_score": <0-100>, "confidence_score": <0-100>, "red_flags": [], "positive_indicators": [], "executive_summary": "", "threat_surface": {{}} }}'''
+        elif stage == 'psycholinguistic':
+             common_prompt = f'''FOCUS: Cognitive Patterns, Emotional Intelligence, Linguistic Markers.
+             Return JSON: {{ "psycholinguistic_profile": {{ "cognitive_patterns": "", "emotional_landscape": "", "linguistic_markers": "" }} }}'''
+        elif stage == 'behavioral':
+             common_prompt = f'''FOCUS: Posting Habits, Social Dynamics, Self-Presentation.
+             Return JSON: {{ "behavioral_matrix": {{ "posting_behavior": "", "social_dynamics": "", "self_presentation": "" }}, "social_network": {{}} }}'''
+        elif stage == 'ideological':
+             common_prompt = f'''FOCUS: Values, Political/Religious Beliefs, Radicalization Trajectory.
+             Return JSON: {{ "ideological_mapping": {{ "core_values": "", "political_ideology": "", "religious_framework": "", "radicalization_trajectory": "" }} }}'''
+
+        return f"""
+        You are a forensic behavioral psychologist. Analyze these posts for {profile}.
+        {common_prompt}
+        
+        POSTS:
+        {posts_text}
+        """

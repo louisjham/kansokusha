@@ -33,8 +33,8 @@
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">Psycholinguistic & Character Assessment</h5>
                     </div>
-                    <div class="card-body markdown-content">
-                        {{ analysis.character_assessment|replace('\n', '<br>')|safe }}
+                    <div class="card-body">
+                        <div class="markdown-content">{{ analysis.character_assessment }}</div>
                     </div>
                 </div>
                 {% endif %}
@@ -44,8 +44,8 @@
                     <div class="card-header bg-info text-white">
                         <h5 class="mb-0">Behavioral Insights & Deep Analysis</h5>
                     </div>
-                    <div class="card-body markdown-content">
-                        {{ analysis.behavioral_insights|replace('\n', '<br>')|safe }}
+                    <div class="card-body">
+                        <div class="markdown-content">{{ analysis.behavioral_insights }}</div>
                     </div>
                 </div>
                 {% endif %}
@@ -90,6 +90,20 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var els = document.getElementsByClassName('markdown-content');
+        for (var i = 0; i < els.length; i++) {
+            // Render markdown from textContent to innerHTML
+            var raw = els[i].textContent;
+            if (raw.trim()) {
+                els[i].innerHTML = marked.parse(raw);
+            }
+        }
+    });
+</script>
+
 <style>
     .markdown-content strong {
         color: #2c3e50;
@@ -101,7 +115,15 @@
         font-size: 1.25rem;
         border-bottom: 2px solid #eee;
         padding-bottom: 0.5rem;
+        color: #0d6efd;
+    }
+
+    .markdown-content ul {
+        padding-left: 1.2rem;
+    }
+
+    .markdown-content p {
+        margin-bottom: 1rem;
     }
 </style>
-
 {% endblock %}
