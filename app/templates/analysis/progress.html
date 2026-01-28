@@ -1,0 +1,63 @@
+{% extends 'layout.html' %}
+{% block title %}Analysis Progress{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"
+                        id="spinner"></span>
+                    Running Comprehensive Analysis...
+                </h5>
+                <small class="text-muted" id="timer">00:00</small>
+            </div>
+            <div class="card-body bg-black p-0">
+                <div id="terminal" class="p-3"
+                    style="height: 400px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; color: #00ff00; font-size: 0.9rem;">
+                    <div class="mb-1">> System initialized.</div>
+                    <div class="mb-1">> Establishing secure connection to AI provider...</div>
+                </div>
+            </div>
+            <div class="card-footer text-muted small">
+                Please do not close this window. Redirecting automatically upon completion.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Simple timer
+    let seconds = 0;
+    setInterval(function () {
+        seconds++;
+        let m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        let s = (seconds % 60).toString().padStart(2, '0');
+        document.getElementById('timer').innerText = m + ':' + s;
+    }, 1000);
+
+    // Function to log messages from the stream
+    function log(message, type = 'info') {
+        const terminal = document.getElementById('terminal');
+        const extras = type === 'error' ? 'text-danger' : (type === 'success' ? 'text-white fw-bold' : '');
+        const icon = type === 'success' ? '✓ ' : (type === 'error' ? '✗ ' : '> ');
+
+        const line = document.createElement('div');
+        line.className = `mb-1 ${extras}`;
+        line.innerText = icon + message;
+        terminal.appendChild(line);
+        terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    // Function to handle completion redirect
+    function complete(redirectUrl) {
+        log('Analysis complete. Finalizing report...', 'success');
+        document.getElementById('spinner').classList.remove('spinner-border');
+        document.getElementById('spinner').classList.add('bi', 'bi-check-circle-fill', 'text-success');
+
+        setTimeout(() => {
+            window.location.href = redirectUrl;
+        }, 1500);
+    }
+</script>
+{% endblock %}

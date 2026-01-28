@@ -208,7 +208,7 @@ def start_analysis(employee_id):
             # Default to Gemini
             service = GeminiService()
         
-        logger.info(f"Starting analysis for employee {employee.employee_id} with {len(all_posts)} posts")
+        logger.info(f"Starting analysis for employee {employee.employee_id} with {len(all_posts)} posts using provider: {provider}")
         
         # Run the analysis with selected checks (if any)
         selected_checks = request.form.getlist('CHECKS')  # values like: risk, character, behavior, redflags, positive, assessments
@@ -250,9 +250,20 @@ def start_analysis(employee_id):
             posts_analyzed=analysis_result.get('posts_analyzed', len(all_posts)),
             analysis_model=analysis_result.get('analysis_model'),
             confidence_score=analysis_result.get('confidence_score'),
-            raw_data=json.loads(analysis_result.get('raw_response', '{}')) if isinstance(analysis_result.get('raw_response'), str) else analysis_result.get('raw_response'),
+            raw_data=None,
             analyzed_by=current_user.username
         )
+        # Safely handle raw_response
+        raw_resp = analysis_result.get('raw_response')
+        if isinstance(raw_resp, dict):
+            analysis.raw_data = raw_resp
+        elif isinstance(raw_resp, str) and raw_resp:
+            try:
+                analysis.raw_data = json.loads(raw_resp)
+            except Exception:
+                # If parsing fails, store it as a single-key JSON or just a string fallback if DB permits
+                # Since column is JSON, we must store a valid structure.
+                analysis.raw_data = {"_raw_string_dump": raw_resp}
         
         db.session.add(analysis)
         

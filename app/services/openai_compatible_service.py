@@ -90,13 +90,16 @@ class OpenAICompatibleService:
 
             # Parse JSON
             try:
-                # Clean up if markdown code blocks are returned even in JSON mode
+                # Basic cleanup for common large language model JSON errors
+                response_content = response_content.strip()
                 if response_content.startswith("```json"):
-                    response_content = response_content.replace("```json", "").replace("```", "")
-                elif response_content.startswith("```"):
-                    response_content = response_content.replace("```", "")
-                    
+                    response_content = response_content.replace("```json", "", 1)
+                if response_content.startswith("```"):
+                    response_content = response_content.replace("```", "", 1)
+                if response_content.endswith("```"):
+                    response_content = response_content.replace("```", "", 1)
                 
+                # Try to parse
                 result = json.loads(response_content)
                 result = self._normalize_result(result, len(posts))
                 result['analysis_model'] = f"{self.provider_type}:{self.model}"
@@ -104,13 +107,15 @@ class OpenAICompatibleService:
             
             except json.JSONDecodeError as e:
                 logger.error(f"JSON Parse Error from {self.provider_type}: {e}")
-                logger.error(f"Raw response: {response_content}")
-                # Fallback structure
+                logger.error(f"Raw response values: {response_content[:200]}...")
+                
+                # Fallback structure with RAW DATA preserved
                 return {
                     "risk_score": 0,
-                    "character_assessment": "Analysis failed to parse.",
+                    "character_assessment": f"Analysis failed to parse JSON response.\nError: {str(e)}",
                     "red_flags": ["System error: Invalid JSON response from AI provider"],
-                    "analysis_model": f"{self.provider_type}:{self.model}"
+                    "analysis_model": f"{self.provider_type}:{self.model}",
+                    "raw_response": response_content  # CRITICAL: Return raw data for debugging
                 }
             
         except Exception as e:

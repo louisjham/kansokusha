@@ -35,6 +35,7 @@ class GeminiService:
                 return self._normalize_result(data, len(posts))
         except Exception as e:
             logger.error(f"Gemini parse error: {e}")
+            logger.error(f"Raw Gemini response (truncated): {response_text[:300]}...")
         # Fallback
         return {
             'risk_score': None,
