@@ -1,89 +1,135 @@
-# Social Media Insight & Forensic Analysis Platform
+# Kansokusha (観測者) ── Forensic Social Insights & AI Risk Analysis Platform
 
-A scalable, AI-driven intelligence platform designed for deep behavioral assessment and risk analysis of social media footprints. This system leverages advanced LLMs (Gemini, Open/Local AI) to perform multi-stage forensic profiling, providing real-time insights into risk factors, character traits, and behavioral patterns.
+**Kansokusha** (The Observer) is a premium, AI-driven digital forensics and open-source intelligence (OSINT) platform designed for deep behavioral auditing, psycholinguistic profiling, and risk analysis of public footprints.
 
-## Key Features
+Leveraging multi-stage LLM analysis pipelines via OpenRouter, the platform processes public activities across social channels to produce forensic risk profiles, highlight behavioral anomalies, and assess reputational security in real-time.
 
-- **Multi-Stage Forensic AI Analysis**:
-  - **Risk Assessment**: Automated detection of security threats, radicalization indicators, and red flags.
-  - **Psycholinguistic Profiling**: Deep analysis of cognitive patterns and emotional landscapes.
-  - **Behavioral Matrix**: Mapping of social dynamics and posting habits.
-  - **Ideological Mapping**: Assessment of values, beliefs, and alignment.
-- **Real-Time Streaming**: Live terminal-style feedback during high-latency AI operations.
-- **Social Media Scraping**: Integrated job management for retrieving data from platforms via Apify.
-- **Role-Based Access Control (RBAC)**: secure hierarchy (Admin, Manager, Analyst) for data protection.
-- **Reporting**: Comprehensive export options (PDF, CSV) with tiered data visibility.
-- **Audit Logging**: Full traceability of all user actions and system events.
+---
 
-## Tech Stack
+## 🚀 Key Modules & Architecture
 
-- **Backend**: Python 3.8+, Flask, SQLAlchemy (ORM)
-- **Database**: PostgreSQL (Production) / SQLite (Dev)
-- **AI Integration**: Google Gemini, Z.AI, OpenRouter (OpenAI-compatible)
-- **Frontend**: Bootstrap 5, Jinja2, Marked.js
+### 1. Social Scraping & Discovery Integrations
+- **GitHub Profile Auditing**: Synchronously extracts public repositories, commit events, and user bio descriptions via REST APIs.
+- **YouTube Media Scraping**: Synchronously fetches video descriptions, upload catalogs, and processes up to 20 top-level viewer comments per video.
+- **Reddit Behavior Scraping**: Integrates with Apify actors to fetch user submissions, comments, and scores.
+- **Web Discovery (OSINT)**: Executes target search engine queries ("dorks") via Google Custom Search Engine to surface additional profiles, documents, forum mentions, and press articles.
+- **Legacy Platform Scraping**: Apify actor orchestration for Twitter/X and Facebook profiles.
 
-## Installation
+### 2. Multi-Stage AI Forensic Analysis
+Kansokusha streams results line-by-line using a staged assessment workflow:
+- **Phase 1: Risk Assessment & Red Flags**: Identifies threats, hate speech, or radicalization indicators.
+- **Phase 2: Psycholinguistic & Behavioral Profiling**: Conducts emotional analysis, habit mapping, and cognitive indicators.
+- **Phase 3: Ideological Mapping**: Identifies key values, biases, and alignment signals.
+- **Phase 4: Synthesis & Scoring**: Calculates a normalized 0-100 risk score and compiles executive reviews.
 
-1.  **Clone the repository**:
-    ```bash
-    git clone <repository_url>
-    cd <repository_drive>
-    ```
+### 3. Role-Based Access Control (RBAC)
+- **Analyst / Reviewer**: Can view employee records, run reports, and view audit history.
+- **Platform Manager**: Can trigger scraping jobs, run discovery runs, and launch forensic AI assessments.
+- **System Administrator**: Full access to global OpenRouter keys, system settings, and diagnostic test routes.
 
-2.  **Set up Virtual Environment**:
-    ```bash
-    python -m venv .venv
-    # Windows
-    .venv\Scripts\activate
-    # Linux/Mac
-    source .venv/bin/activate
-    ```
+---
 
-3.  **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+## 🛠️ Installation & Setup
 
-4.  **Configuration**:
-    Copy `.env.example` to `.env` and populate your API keys:
-    ```bash
-    cp .env.example .env
-    ```
-    *Required keys: `SECRET_KEY`, `DATABASE_URL` (or default sqlite), and AI provider keys (`GOOGLE_API_KEY`, etc.).*
+### Prerequisites
+- Python 3.9 or higher
+- SQLite (for development) or PostgreSQL 14+ (for production environments)
+- Git
 
-5.  **Initialize Database**:
-    ```bash
-    flask db upgrade
-    # Seed initial admin user
-    python scripts/seed_admin.py
-    ```
+### 1. Clone the Codebase
+```bash
+git clone https://github.com/louisjham/kansokusha.git
+cd kansokusha
+```
 
-## Usage
+### 2. Configure Virtual Environment
+Create and activate a virtual environment to manage dependencies cleanly:
+```bash
+# Create environment
+python -m venv .venv
 
-1.  **Start the Server**:
-    ```bash
-    python run.py
-    ```
-    The application typically runs on port `4444`.
+# Activate on Windows (PowerShell)
+.venv\Scripts\Activate.ps1
 
-2.  **Workflow**:
-    - Log in as an Admin/Manager.
-    - Create an Employee profile.
-    - Initiate a Scraping Job (e.g., Twitter/X profile).
-    - Once scraping is complete, trigger **"Start Analysis"**.
-    - Watch the real-time forensic assessment.
-    - View and export the final report.
+# Activate on Linux/macOS
+source .venv/bin/activate
+```
 
-## License
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
 
-Private / Proprietary.
+### 4. Setup Environment Settings
+Create a `.env` file from the example template:
+```bash
+cp .env.example .env
+```
 
-## OSINT & Web Discovery Safeguards
+Open `.env` and fill out the configuration parameters:
+- **`SECRET_KEY`**: Set a long, secure random key for session encryption.
+- **`OPENROUTER_API_KEY`**: Provide your OpenRouter API key.
+- **`OPENROUTER_MODEL`**: Default is set to `google/gemini-2.0-flash-lite:free`.
+- **`GITHUB_TOKEN`**: (Optional) To increase GitHub API limits from 60/hr to 5000/hr.
+- **`YOUTUBE_API_KEY`**: Required to run YouTube scrapes.
+- **`GOOGLE_CSE_API_KEY` & `GOOGLE_CSE_CX`**: Required to execute Web Discovery OSINT sweeps.
+- **`APIFY_API_TOKEN`**: Required to scrape Reddit, Twitter, or Facebook.
 
-The `web_discovery` platform is designed strictly for lawful, open-source intelligence (OSINT) enrichment to locate public presence. It implements several hardcoded safeguards to prevent abuse:
+### 5. Initialize Database & Seed Administrator
+Setup the database tables and create the default admin user:
+```bash
+# Perform database migration
+flask db upgrade
 
-1. **Information Leakage Prevention**: Queries avoid exposing full emails, private identifiers, or personal secrets. Domain filters isolate domain suffixes for organization searches instead of raw email handles.
-2. **Exploit Protection**: The query builder forbids search engine hacking operators (e.g. `inurl:`, `intitle:`) and keywords related to exploit search payloading or security vulnerability probing.
-3. **Keyword Safeguards**: The system screens all user input profiles against a blocklist of security, credential-harvesting, and bank/financial risk keywords, returning zero results if any violations are detected.
-4. **Aggregation Filters**: Low-value search spam and commercial database aggregators (people-search scrapers like Spokeo/Whitepages) are automatically blocked and stripped from output lists.
+# Seed initial system administrator
+python scripts/seed_admin.py
+```
+*Note: The seeding script outputs default credentials for initial login. Ensure you change your password on first sign-in.*
 
+---
+
+## 📈 Operation & Usage Guide
+
+### 1. Launch the Development Server
+```bash
+python run.py
+```
+Open your browser and navigate to `http://localhost:4444`.
+
+### 2. Add an Employee Profile
+1. Log in with a **Platform Manager** or **Administrator** account.
+2. Select **Employees** from the sidebar/navbar, then click **Add Employee**.
+3. Fill out the employee details (First Name, Last Name, Email, Department, and Position) and click **Create**.
+
+### 3. Configure Social Accounts
+1. Inside the Employee view page, click **Add Social Account**.
+2. Select the platform (e.g. YouTube, GitHub, Reddit, or Web Discovery).
+3. Enter the **Username** or **Handle** and the target **Profile URL** (or channel URL for YouTube), then save.
+
+### 4. Execute Scraping Jobs
+1. On the Employee profile dashboard, locate the newly added account and click **Start Scraping**.
+2. For synchronous platforms (GitHub, YouTube, Web Discovery), data will be fetched, scored, and mapped immediately, transitioning the status to `Completed`.
+3. For asynchronous platforms (Twitter, Reddit, Facebook), a job is dispatched to Apify. Click **Refresh Status** on the Job details view to query completion progress and fetch logs.
+
+### 5. Launch AI Assessment
+1. Once scraping jobs are finished, click **Trigger Analysis** under the Employee profile dashboard.
+2. Select the target scraping jobs to include in the context.
+3. Choose the OpenRouter model (defaulting to the free Gemini model).
+4. Click **Start Forensic Analysis**. The page will load a real-time streaming terminal interface displaying multi-stage cognitive assessments line-by-line.
+5. Once completed, review the generated risk assessment, positive indicators, and executive PDF/CSV reports.
+
+---
+
+## 🔒 OSINT & Web Discovery Safeguards
+
+The `web_discovery` module runs targeted search queries strictly for open-source profile and document attribution. To prevent malicious usage or credential exposure, the service enforces the following constraints:
+
+1. **Identifier Leak Checks**: Scans incoming profile data for password strings, private tokens, SSN formats, or credit card numbers. If any are detected, query generation immediately aborts.
+2. **Exploit Operator Block**: Forbids search hacking commands like `inurl:`, `intitle:`, or folder indices (e.g. `index of`) that could be used for scanning system weaknesses.
+3. **Low-Value Spam Filtering**: Discards results originating from database brokers or spam aggregator domains (e.g., Whitepages, Spokeo, Radaris).
+4. **Data Minimization**: Limits queries to public-domain search filters (such as LinkedIn, GitHub, GitLab, Reddit, StackOverflow, Medium, and Substack).
+
+---
+
+## ⚖️ License
+Private and Proprietary. All Rights Reserved.
