@@ -77,3 +77,13 @@ A scalable, AI-driven intelligence platform designed for deep behavioral assessm
 ## License
 
 Private / Proprietary.
+
+## OSINT & Web Discovery Safeguards
+
+The `web_discovery` platform is designed strictly for lawful, open-source intelligence (OSINT) enrichment to locate public presence. It implements several hardcoded safeguards to prevent abuse:
+
+1. **Information Leakage Prevention**: Queries avoid exposing full emails, private identifiers, or personal secrets. Domain filters isolate domain suffixes for organization searches instead of raw email handles.
+2. **Exploit Protection**: The query builder forbids search engine hacking operators (e.g. `inurl:`, `intitle:`) and keywords related to exploit search payloading or security vulnerability probing.
+3. **Keyword Safeguards**: The system screens all user input profiles against a blocklist of security, credential-harvesting, and bank/financial risk keywords, returning zero results if any violations are detected.
+4. **Aggregation Filters**: Low-value search spam and commercial database aggregators (people-search scrapers like Spokeo/Whitepages) are automatically blocked and stripped from output lists.
+

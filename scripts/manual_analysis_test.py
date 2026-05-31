@@ -5,7 +5,6 @@ import os
 from app import create_app, db
 from app.models import AnalysisResult, Employee
 from app.services.openai_compatible_service import OpenAICompatibleService
-from app.services.gemini_service import GeminiService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,18 +31,8 @@ def run_test():
         }
         
         # 2. Select Provider
-        # Reading from .env or defaulting to gemini as per config
-        provider_name = os.environ.get('ANALYSIS_PROVIDER', 'gemini').lower()
-        print(f"Using Provider: {provider_name}")
-        
-        service = None
-        if provider_name == 'gemini':
-            service = GeminiService()
-        elif provider_name in ['openai', 'zai', 'openrouter', 'ollama']: # ollama is technically removed but checking just in case
-             service = OpenAICompatibleService(provider_name)
-        else:
-            print(f"Unknown provider: {provider_name}. Defaulting to Gemini.")
-            service = GeminiService()
+        print("Using Provider: openrouter")
+        service = OpenAICompatibleService('openrouter')
 
         # 3. Run Analysis
         try:

@@ -2,8 +2,6 @@ from flask import render_template, redirect, url_for, flash, request, make_respo
 from flask_login import login_required, current_user
 from app.analysis import bp
 from app.models import Employee, AnalysisResult, ScrapingJob, AuditLog, SocialMediaAccount
-
-from app.services.gemini_service import GeminiService
 from app.models import get_setting
 from app import db
 from datetime import datetime
@@ -187,15 +185,9 @@ def start_analysis(employee_id):
         return redirect(url_for('employees.view_employee', id=employee_id))
     
     # Initialize provider
-    provider = (get_setting('ANALYSIS_PROVIDER', 'gemini') or 'gemini').lower()
-    if provider == 'z_ai':
-        from app.services.openai_compatible_service import OpenAICompatibleService
-        service = OpenAICompatibleService('z_ai')
-    elif provider == 'openrouter':
-        from app.services.openai_compatible_service import OpenAICompatibleService
-        service = OpenAICompatibleService('openrouter')
-    else:
-        service = GeminiService()
+    from app.services.openai_compatible_service import OpenAICompatibleService
+    service = OpenAICompatibleService('openrouter')
+    provider = 'openrouter'
 
     logger.info(f"Starting streaming analysis for employee {employee.employee_id} using {provider}")
 

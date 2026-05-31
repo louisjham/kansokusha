@@ -21,64 +21,13 @@
       </div>
 
       <div class="card mb-3">
-        <div class="card-header">Analysis Settings</div>
+        <div class="card-header">OpenRouter AI Settings</div>
         <div class="card-body">
           <div class="mb-3">
-            <label class="form-label">Provider</label>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="ANALYSIS_PROVIDER" id="prov_ollama" value="ollama" {%
-                if analysis_provider=='ollama' %}checked{% endif %} onchange="toggleProviderSettings()">
-              <label class="form-check-label" for="prov_ollama">Ollama (local)</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="ANALYSIS_PROVIDER" id="prov_gemini" value="gemini" {%
-                if analysis_provider=='gemini' %}checked{% endif %} onchange="toggleProviderSettings()">
-              <label class="form-check-label" for="prov_gemini">Gemini (gemini-2.0-flash, cloud)</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="ANALYSIS_PROVIDER" id="prov_z_ai" value="z_ai" {% if
-                analysis_provider=='z_ai' %}checked{% endif %} onchange="toggleProviderSettings()">
-              <label class="form-check-label" for="prov_z_ai">Z.AI (Zhipu GLM)</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="ANALYSIS_PROVIDER" id="prov_openrouter"
-                value="openrouter" {% if analysis_provider=='openrouter' %}checked{% endif %}
-                onchange="toggleProviderSettings()">
-              <label class="form-check-label" for="prov_openrouter">OpenRouter (Unified API)</label>
-            </div>
-          </div>
-
-          <!-- Gemini Settings -->
-          <div class="mb-3 provider-settings" id="geminiCreds"
-            style="display: {% if analysis_provider=='gemini' %}block{% else %}none{% endif %};">
-            <label class="form-label">Gemini API Key</label>
-            <input class="form-control" type="password" name="GOOGLE_API_KEY"
-              placeholder="{% if gemini_key_present %}******** (saved){% else %}Enter Google API key{% endif %}">
-            <div class="form-text">Key is stored securely. Leave blank to keep current.</div>
-          </div>
-
-          <!-- Z.AI Settings -->
-          <div class="mb-3 provider-settings" id="zaiCreds"
-            style="display: {% if analysis_provider=='z_ai' %}block{% else %}none{% endif %};">
-            <label class="form-label">Z.AI API Key</label>
-            <input class="form-control" type="password" name="ZAI_API_KEY"
-              placeholder="{% if config.get('ZAI_API_KEY') %}******** (saved){% else %}Enter Z.AI API key{% endif %}">
-
-            <label class="form-label mt-2">API Base URL</label>
-            <input class="form-control" type="text" name="ZAI_API_BASE" value="{{ current_settings.ZAI_API_BASE }}"
-              placeholder="https://open.bigmodel.cn/api/paas/v4/">
-
-            <label class="form-label mt-2">Model</label>
-            <input class="form-control" type="text" name="ZAI_MODEL"
-              value="{{ current_settings.ZAI_MODEL or 'glm-4-flash' }}">
-          </div>
-
-          <!-- OpenRouter Settings -->
-          <div class="mb-3 provider-settings" id="openrouterCreds"
-            style="display: {% if analysis_provider=='openrouter' %}block{% else %}none{% endif %};">
             <label class="form-label">OpenRouter API Key</label>
             <input class="form-control" type="password" name="OPENROUTER_API_KEY"
-              placeholder="{% if config.get('OPENROUTER_API_KEY') %}******** (saved){% else %}Enter OpenRouter API key{% endif %}">
+              placeholder="{% if openrouter_key_present %}******** (saved){% else %}Enter OpenRouter API key{% endif %}">
+            <div class="form-text">Key is stored securely. Leave blank to keep current.</div>
 
             <label class="form-label mt-2">API Base URL</label>
             <input class="form-control" type="text" name="OPENROUTER_API_BASE"
@@ -86,9 +35,9 @@
 
             <label class="form-label mt-2">Model</label>
             <input class="form-control" type="text" name="OPENROUTER_MODEL"
-              value="{{ current_settings.OPENROUTER_MODEL or 'google/gemini-2.0-flash-001' }}">
+              value="{{ current_settings.OPENROUTER_MODEL or 'google/gemini-2.0-flash-lite:free' }}">
+            <div class="form-text">Recommended default free model: <code>google/gemini-2.0-flash-lite:free</code></div>
           </div>
-
 
           <div class="mb-3">
             <label class="form-label">Mode</label>
@@ -150,43 +99,7 @@
   {% endif %}
 
   {% if is_admin %}
-  <div class="card mb-3">
-    <div class="card-header">Ollama</div>
-    <div class="card-body">
-      <div class="mb-2">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="useExistingModels" checked>
-          <label class="form-check-label" for="useExistingModels">Select from existing models detected on Ollama</label>
-        </div>
-      </div>
 
-      <div id="existingModelsSection" class="mb-3" style="display: block;">
-        {% if available_models and available_models|length > 0 %}
-        <div class="row">
-          {% for m in available_models %}
-          <div class="col-md-4 mb-1">
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="OLLAMA_MODEL" id="model_{{ loop.index }}"
-                value="{{ m }}" {% if current_settings.OLLAMA_MODEL==m %}checked{% endif %}>
-              <label class="form-check-label" for="model_{{ loop.index }}">{{ m }}</label>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="alert alert-warning">No models discovered from Ollama API. Ensure Ollama is running and models are
-          pulled (e.g., <code>ollama pull llama2</code>).</div>
-        {% endif %}
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label">Or enter a custom model</label>
-        <input class="form-control" type="text" name="OLLAMA_MODEL_CUSTOM" value=""
-          placeholder="Leave blank to use selection above">
-        <div class="form-text">Example: llama2, mistral, qwen2.5, etc. Must be available in your Ollama server.</div>
-      </div>
-    </div>
-  </div>
 
   <div class="card mb-3">
     <div class="card-header">Assessment Dimensions</div>
@@ -229,48 +142,16 @@
   <button class="btn btn-primary" type="submit">Save Settings</button>
 </form>
 
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const chk = document.getElementById('useExistingModels');
-    const section = document.getElementById('existingModelsSection');
-    const radios = document.querySelectorAll('input[name="OLLAMA_MODEL"]');
-    const custom = document.querySelector('input[name="OLLAMA_MODEL_CUSTOM"]');
-
-    function toggleModels() {
-      if (chk && section) {
-        section.style.display = chk.checked ? 'block' : 'none';
-        if (!chk.checked) {
-          // Uncheck radios when hiding, to prefer custom value if provided
-          radios.forEach(r => r.checked = false);
-        }
-      }
-    }
-    if (chk) {
-      chk.addEventListener('change', toggleModels);
-      toggleModels();
-    }
-
-    // Initialize provider settings visibility
-    toggleProviderSettings();
-  });
-
-  function toggleProviderSettings() {
-    const provider = document.querySelector('input[name="ANALYSIS_PROVIDER"]:checked').value;
-
-    // Hide all
-    document.querySelectorAll('.provider-settings').forEach(el => el.style.display = 'none');
-
-    // Show selected
-    if (provider === 'gemini') {
-      const el = document.getElementById('geminiCreds');
-      if (el) el.style.display = 'block';
-    } else if (provider === 'z_ai') {
-      const el = document.getElementById('zaiCreds');
-      if (el) el.style.display = 'block';
-    } else if (provider === 'openrouter') {
-      const el = document.getElementById('openrouterCreds');
-      if (el) el.style.display = 'block';
-    }
-  }
-</script>
+{% if is_admin %}
+<div class="card mt-4 col-lg-8 border-warning">
+  <div class="card-header bg-warning-subtle text-warning-emphasis">Diagnostics</div>
+  <div class="card-body">
+    <p class="card-text text-muted">Test connection to the OpenRouter API using your saved credentials.</p>
+    <form method="post" action="{{ url_for('main.test_openrouter') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-warning" type="submit">Test OpenRouter Connection</button>
+    </form>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

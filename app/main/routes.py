@@ -177,34 +177,10 @@ def settings():
                     set_setting(key, val, updated_by=current_user.username)
                     updates[key] = 'updated'
 
-            # Provider selection
-            provider = request.form.get('ANALYSIS_PROVIDER')
-            if provider in ['gemini', 'z_ai', 'openrouter']:
-                set_setting('ANALYSIS_PROVIDER', provider, updated_by=current_user.username)
-                updates['ANALYSIS_PROVIDER'] = provider
+            # Always restrict to OpenRouter
+            set_setting('ANALYSIS_PROVIDER', 'openrouter', updated_by=current_user.username)
+            updates['ANALYSIS_PROVIDER'] = 'openrouter'
 
-            # Gemini API key
-            gemini_key = request.form.get('GOOGLE_API_KEY')
-            if gemini_key is not None and gemini_key.strip() != '':
-                set_setting('GOOGLE_API_KEY', gemini_key.strip(), updated_by=current_user.username)
-                updates['GOOGLE_API_KEY'] = '***saved***'
-
-            # Z.AI settings
-            zai_key = request.form.get('ZAI_API_KEY')
-            if zai_key is not None and zai_key.strip() != '':
-                set_setting('ZAI_API_KEY', zai_key.strip(), updated_by=current_user.username)
-                updates['ZAI_API_KEY'] = '***saved***'
-            
-            zai_model = request.form.get('ZAI_MODEL')
-            if zai_model:
-                set_setting('ZAI_MODEL', zai_model.strip(), updated_by=current_user.username)
-                updates['ZAI_MODEL'] = zai_model
-
-            zai_base = request.form.get('ZAI_API_BASE')
-            if zai_base:
-                set_setting('ZAI_API_BASE', zai_base.strip(), updated_by=current_user.username)
-                updates['ZAI_API_BASE'] = zai_base
-            
             # OpenRouter settings
             openrouter_key = request.form.get('OPENROUTER_API_KEY')
             if openrouter_key is not None and openrouter_key.strip() != '':
@@ -240,9 +216,7 @@ def settings():
         max_posts_val = str(int(current_app.config.get('MAX_POSTS_PER_SCRAPE', 1000)))
     current_settings = {
         'MAX_POSTS_PER_SCRAPE': max_posts_val,
-        'ZAI_MODEL': get_setting('ZAI_MODEL', current_app.config.get('ZAI_MODEL', 'glm-4-flash')),
-        'ZAI_API_BASE': get_setting('ZAI_API_BASE', current_app.config.get('ZAI_API_BASE', 'https://open.bigmodel.cn/api/paas/v4/')),
-        'OPENROUTER_MODEL': get_setting('OPENROUTER_MODEL', current_app.config.get('OPENROUTER_MODEL', 'google/gemini-2.0-flash-001')),
+        'OPENROUTER_MODEL': get_setting('OPENROUTER_MODEL', current_app.config.get('OPENROUTER_MODEL', 'google/gemini-2.0-flash-lite:free')),
         'OPENROUTER_API_BASE': get_setting('OPENROUTER_API_BASE', current_app.config.get('OPENROUTER_API_BASE', 'https://openrouter.ai/api/v1/')),
     }
     
@@ -271,8 +245,7 @@ def settings():
     # Analysis settings current values
     analysis_mode = get_setting('ANALYSIS_MODE', 'single')
     prompt_extra = get_setting('PROMPT_EXTRA_INSTRUCTIONS', '') or ''
-    analysis_provider = get_setting('ANALYSIS_PROVIDER', 'gemini') or 'gemini'
-    gemini_key_present = bool(get_setting('GOOGLE_API_KEY', None))
+    analysis_provider = get_setting('ANALYSIS_PROVIDER', 'openrouter') or 'openrouter'
     prompt_overrides = {
         'PROMPT_RISK': get_setting('PROMPT_RISK', '') or '',
         'PROMPT_CHARACTER': get_setting('PROMPT_CHARACTER', '') or '',
@@ -294,20 +267,20 @@ def settings():
                            prompt_extra=prompt_extra,
                            prompt_overrides=prompt_overrides,
                            analysis_provider=analysis_provider,
-                           gemini_key_present=gemini_key_present)
+                           openrouter_key_present=bool(get_setting('OPENROUTER_API_KEY', None)))
 
-@bp.route('/settings/test_gemini', methods=['POST'])
+@bp.route('/settings/test_openrouter', methods=['POST'])
 @login_required
-def test_gemini():
-    """Test connectivity to Gemini API using stored API key."""
+def test_openrouter():
+    """Test connectivity to OpenRouter using stored API key."""
     if current_user.role != 'system_admin':
         flash('Access denied. System admin required.', 'error')
         return redirect(url_for('main.settings'))
     try:
-        from app.services.gemini_service import GeminiService
-        svc = GeminiService()
+        from app.services.openai_compatible_service import OpenAICompatibleService
+        svc = OpenAICompatibleService('openrouter')
         result = svc.test_connection()
-        flash(result.get('message', 'Gemini test completed.'), 'success' if result.get('status') == 'success' else 'warning')
+        flash(result.get('message', 'OpenRouter test completed.'), 'success' if result.get('status') == 'success' else 'warning')
     except Exception as e:
-        flash(f'Gemini test failed: {str(e)}', 'error')
+        flash(f'OpenRouter test failed: {str(e)}', 'error')
     return redirect(url_for('main.settings'))

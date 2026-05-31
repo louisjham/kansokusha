@@ -70,20 +70,64 @@ def start_scraping(social_account_id):
         db.session.add(job)
         db.session.flush()  # Get the job ID
         
-        # Initialize Apify service
-        apify_service = ApifyService()
-        
         # Start scraping based on platform
-        if social_account.platform == 'twitter':
-            result = apify_service.scrape_twitter_profile(social_account.username)
-        elif social_account.platform == 'facebook':
-            result = apify_service.scrape_facebook_page(social_account.profile_url)
+        if social_account.platform == 'github':
+            from app.services.github_service import GithubService
+            github_service = GithubService()
+            posts = github_service.scrape_github_profile(social_account.username)
+            job.status = 'completed'
+            job.set_posts(posts)
+            job.completed_at = datetime.utcnow()
+            run_id = None
+            flash_msg = f'GitHub data retrieved successfully. Scraped {len(posts)} items.'
+            flash_category = 'success'
+        elif social_account.platform == 'youtube':
+            from app.services.youtube_service import YoutubeService
+            youtube_service = YoutubeService()
+            posts = youtube_service.scrape_youtube_activity(social_account.profile_url or social_account.username)
+            job.status = 'completed'
+            job.set_posts(posts)
+            job.completed_at = datetime.utcnow()
+            run_id = None
+            flash_msg = f'YouTube data retrieved successfully. Scraped {len(posts)} items.'
+            flash_category = 'success'
+        elif social_account.platform == 'web_discovery':
+            from app.services.web_discovery_service import WebDiscoveryService
+            wd_service = WebDiscoveryService()
+            employee = social_account.employee
+            profile = {
+                'full_name': employee.full_name if employee else None,
+                'username': social_account.username,
+                'email': employee.email if employee else None,
+                'aliases': [],
+                'employer': None,
+                'city': None,
+                'region': None,
+                'known_domains': []
+            }
+            posts = wd_service.scrape_web_discovery(profile)
+            job.status = 'completed'
+            job.set_posts(posts)
+            job.completed_at = datetime.utcnow()
+            run_id = None
+            flash_msg = f'Web Discovery completed successfully. Scraped {len(posts)} items.'
+            flash_category = 'success'
         else:
-            raise ValueError(f"Unsupported platform: {social_account.platform}")
-        
-        # Update job with Apify run ID
-        job.apify_run_id = result['run_id']
-        job.status = 'running'
+            apify_service = ApifyService()
+            if social_account.platform == 'twitter':
+                result = apify_service.scrape_twitter_profile(social_account.username)
+            elif social_account.platform == 'facebook':
+                result = apify_service.scrape_facebook_page(social_account.profile_url)
+            elif social_account.platform == 'reddit':
+                result = apify_service.scrape_reddit_profile(social_account.username)
+            else:
+                raise ValueError(f"Unsupported platform: {social_account.platform}")
+            
+            job.apify_run_id = result['run_id']
+            job.status = 'running'
+            run_id = result['run_id']
+            flash_msg = f'Scraping started for {social_account.platform} account @{social_account.username}'
+            flash_category = 'success'
         
         # Update social account
         social_account.last_scraped = datetime.utcnow()
@@ -92,14 +136,14 @@ def start_scraping(social_account_id):
         # Log the action
         audit_log = AuditLog(
             user_id=current_user.id,
-            action='scraping_started',
+            action='scraping_started' if social_account.platform not in ['github', 'youtube', 'web_discovery'] else 'scraping_completed_sync',
             resource_type='scraping_job',
             resource_id=job.id,
             details={
-                'employee_id': social_account.employee.employee_id,
+                'employee_id': social_account.employee.employee_id if social_account.employee else None,
                 'platform': social_account.platform,
                 'username': social_account.username,
-                'apify_run_id': result['run_id']
+                'apify_run_id': run_id
             },
             ip_address=request.remote_addr
         )
@@ -107,8 +151,8 @@ def start_scraping(social_account_id):
         
         db.session.commit()
         
-        flash(f'Scraping started for {social_account.platform} account @{social_account.username}', 'success')
-        logger.info(f"Started scraping job {job.id} for {social_account.platform} @{social_account.username}")
+        flash(flash_msg, flash_category)
+        logger.info(f"Finished scraping job {job.id} for {social_account.platform} @{social_account.username}")
         
     except Exception as e:
         db.session.rollback()
@@ -304,17 +348,52 @@ def bulk_scrape():
                 db.session.add(job)
                 db.session.flush()
                 
-                apify_service = ApifyService()
-                
-                if social_account.platform == 'twitter':
-                    result = apify_service.scrape_twitter_profile(social_account.username)
-                elif social_account.platform == 'facebook':
-                    result = apify_service.scrape_facebook_page(social_account.profile_url)
+                if social_account.platform == 'github':
+                    from app.services.github_service import GithubService
+                    github_service = GithubService()
+                    posts = github_service.scrape_github_profile(social_account.username)
+                    job.status = 'completed'
+                    job.set_posts(posts)
+                    job.completed_at = datetime.utcnow()
+                elif social_account.platform == 'youtube':
+                    from app.services.youtube_service import YoutubeService
+                    youtube_service = YoutubeService()
+                    posts = youtube_service.scrape_youtube_activity(social_account.profile_url or social_account.username)
+                    job.status = 'completed'
+                    job.set_posts(posts)
+                    job.completed_at = datetime.utcnow()
+                elif social_account.platform == 'web_discovery':
+                    from app.services.web_discovery_service import WebDiscoveryService
+                    wd_service = WebDiscoveryService()
+                    employee = social_account.employee
+                    profile = {
+                        'full_name': employee.full_name if employee else None,
+                        'username': social_account.username,
+                        'email': employee.email if employee else None,
+                        'aliases': [],
+                        'employer': None,
+                        'city': None,
+                        'region': None,
+                        'known_domains': []
+                    }
+                    posts = wd_service.scrape_web_discovery(profile)
+                    job.status = 'completed'
+                    job.set_posts(posts)
+                    job.completed_at = datetime.utcnow()
                 else:
-                    continue
+                    apify_service = ApifyService()
+                    if social_account.platform == 'twitter':
+                        result = apify_service.scrape_twitter_profile(social_account.username)
+                    elif social_account.platform == 'facebook':
+                        result = apify_service.scrape_facebook_page(social_account.profile_url)
+                    elif social_account.platform == 'reddit':
+                        result = apify_service.scrape_reddit_profile(social_account.username)
+                    else:
+                        continue
+                    
+                    job.apify_run_id = result['run_id']
+                    job.status = 'running'
                 
-                job.apify_run_id = result['run_id']
-                job.status = 'running'
                 social_account.last_scraped = datetime.utcnow()
                 social_account.scrape_count += 1
                 

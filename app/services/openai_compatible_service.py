@@ -2,7 +2,7 @@ from openai import OpenAI
 from flask import current_app
 import logging
 import json
-from typing import List, Dict
+from typing import List, Dict, Any
 from app.models import get_setting
 
 logger = logging.getLogger(__name__)
@@ -12,32 +12,18 @@ class OpenAICompatibleService:
     Generic service for interacting with OpenAI-compatible APIs (Z.AI, OpenRouter, etc.).
     """
     
-    def __init__(self, provider_type):
+    def __init__(self, provider_type='openrouter'):
         """
         Initialize the service.
-        
-        Args:
-            provider_type (str): 'z_ai' or 'openrouter'
         """
-        self.provider_type = provider_type
-        
-        if provider_type == 'z_ai':
-            self.api_key = get_setting('ZAI_API_KEY', current_app.config.get('ZAI_API_KEY'))
-            self.base_url = get_setting('ZAI_API_BASE', current_app.config.get('ZAI_API_BASE', "https://open.bigmodel.cn/api/paas/v4/"))
-            # Ensure model is set
-            self.model = get_setting('ZAI_MODEL', current_app.config.get('ZAI_MODEL'))
-            
-        elif provider_type == 'openrouter':
-            self.api_key = get_setting('OPENROUTER_API_KEY', current_app.config.get('OPENROUTER_API_KEY'))
-            self.base_url = get_setting('OPENROUTER_API_BASE', current_app.config.get('OPENROUTER_API_BASE', "https://openrouter.ai/api/v1/"))
-            self.model = get_setting('OPENROUTER_MODEL', current_app.config.get('OPENROUTER_MODEL'))
-            
-        else:
-            raise ValueError(f"Unknown provider type: {provider_type}")
+        self.provider_type = 'openrouter'
+        self.api_key = get_setting('OPENROUTER_API_KEY', current_app.config.get('OPENROUTER_API_KEY'))
+        self.base_url = get_setting('OPENROUTER_API_BASE', current_app.config.get('OPENROUTER_API_BASE', "https://openrouter.ai/api/v1/"))
+        self.model = get_setting('OPENROUTER_MODEL', current_app.config.get('OPENROUTER_MODEL'))
             
         if not self.api_key:
             # We don't raise error here to allow app to start, but check calling methods
-            logger.warning(f"API key not found for {provider_type}")
+            logger.warning("API key not found for OpenRouter")
             self.client = None
         else:
             self.client = OpenAI(
@@ -75,7 +61,7 @@ class OpenAICompatibleService:
                         "content": prompt,
                     }
                 ],
-                model=self.model or "gpt-3.5-turbo", # Fallback to avoid None type error
+                model=self.model or "google/gemini-2.0-flash-lite:free", # Fallback to avoid None type error
                 response_format={ "type": "json_object" }, # Using JSON mode which is supported by Z.AI and many OpenRouter models
                 max_tokens=4096
             )
@@ -716,7 +702,7 @@ ANALYTICAL STANCE:
                     {"role": "system", "content": "You are an expert social media analyst. Output ONLY valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                model=self.model or "gpt-3.5-turbo",
+                model=self.model or "google/gemini-2.0-flash-lite:free",
                 response_format={"type": "json_object"},
                 max_tokens=4096
             )
@@ -812,3 +798,20 @@ ANALYTICAL STANCE:
             }}
             '''
         return ""
+
+    def test_connection(self):
+        """Test connectivity to OpenRouter using stored credentials."""
+        if not self.client:
+            return {'status': 'error', 'message': 'OpenRouter client is not initialized.'}
+        try:
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    {"role": "user", "content": "ping"}
+                ],
+                model=self.model or "google/gemini-2.0-flash-lite:free",
+                max_tokens=5
+            )
+            content = chat_completion.choices[0].message.content
+            return {'status': 'success', 'message': f'OpenRouter connection successful! Response: "{content}"'}
+        except Exception as e:
+            return {'status': 'error', 'message': f'OpenRouter connection failed: {str(e)}'}

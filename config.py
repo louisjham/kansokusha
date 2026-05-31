@@ -15,15 +15,22 @@ class Config:
     
 
 
-    # Z.AI Configuration
-    ZAI_API_KEY = os.environ.get('ZAI_API_KEY')
-    ZAI_API_BASE = os.environ.get('ZAI_API_BASE', 'https://open.bigmodel.cn/api/paas/v4/')
-    ZAI_MODEL = os.environ.get('ZAI_MODEL', 'glm-4-flash') # Default model for Z.AI
-
     # OpenRouter Configuration
     OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
     OPENROUTER_API_BASE = os.environ.get('OPENROUTER_API_BASE', 'https://openrouter.ai/api/v1/')
-    OPENROUTER_MODEL = os.environ.get('OPENROUTER_MODEL', 'google/gemini-2.0-flash-001') # Default model for OpenRouter
+    OPENROUTER_MODEL = os.environ.get('OPENROUTER_MODEL', 'google/gemini-2.0-flash-lite:free') # Default model for OpenRouter
+
+    # GitHub Configuration
+    GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')
+
+    # YouTube Configuration
+    YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY')
+    
+    # Web Discovery OSINT Configuration
+    GOOGLE_CSE_API_KEY = os.environ.get('GOOGLE_CSE_API_KEY')
+    GOOGLE_CSE_CX = os.environ.get('GOOGLE_CSE_CX')
+    WEB_DISCOVERY_MAX_QUERIES = int(os.environ.get('WEB_DISCOVERY_MAX_QUERIES', 10))
+    WEB_DISCOVERY_MAX_RESULTS_PER_QUERY = int(os.environ.get('WEB_DISCOVERY_MAX_RESULTS_PER_QUERY', 10))
     
     # Security
     BCRYPT_LOG_ROUNDS = int(os.environ.get('BCRYPT_LOG_ROUNDS', 12))

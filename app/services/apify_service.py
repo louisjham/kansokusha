@@ -116,7 +116,40 @@ class ApifyService:
         except Exception as e:
             logger.error(f"Error starting Facebook scraping for {page_url}: {str(e)}")
             raise
-    
+
+    def scrape_reddit_profile(self, username, max_items=None):
+        """
+        Scrape Reddit profile posts.
+        
+        Args:
+            username (str): Reddit username
+            max_items (int): Maximum number of posts to scrape
+            
+        Returns:
+            dict: Run information with run_id and status
+        """
+        if max_items is None:
+            max_items = 100
+        
+        run_input = {
+            "username": username,
+            "maxItems": max_items,
+            "type": "user"
+        }
+        
+        try:
+            run = self.client.actor("trudax/reddit-scraper").call(run_input=run_input)
+            logger.info(f"Started Reddit scraping for u/{username}, run_id: {run['id']}")
+            return {
+                'run_id': run['id'],
+                'status': 'running',
+                'platform': 'reddit',
+                'username': username
+            }
+        except Exception as e:
+            logger.error(f"Error starting Reddit scraping for u/{username}: {str(e)}")
+            raise
+
     def get_run_status(self, run_id):
         """
         Get the status of a scraping run.
@@ -248,6 +281,8 @@ class ApifyService:
                     post = self._process_twitter_post(item)
                 elif platform == 'facebook':
                     post = self._process_facebook_post(item)
+                elif platform == 'reddit':
+                    post = self._process_reddit_post(item)
                 else:
                     continue
                 
@@ -292,5 +327,22 @@ class ApifyService:
             'post_type': item.get('postType', ''),
             'url': item.get('postUrl', ''),
             'images': item.get('images', []),
+            'raw_data': item
+        }
+
+    def _process_reddit_post(self, item):
+        """Process a single Reddit post."""
+        return {
+            'platform': 'reddit',
+            'post_id': item.get('id'),
+            'content': item.get('body', ''),
+            'text': item.get('body', ''),  # Map to text for system-wide compatibility
+            'title': item.get('title', ''),
+            'author': item.get('author', ''),
+            'source_context': item.get('subreddit', ''),
+            'engagement_score': item.get('score', 0),
+            'timestamp': item.get('created_utc'),
+            'created_at': item.get('created_utc'),  # Map to created_at for compatibility
+            'url': item.get('url', ''),
             'raw_data': item
         }
