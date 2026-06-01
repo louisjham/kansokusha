@@ -1,3 +1,4 @@
+<img width="934" height="763" alt="image" src="https://github.com/user-attachments/assets/c9b8b9d5-718f-44c5-b4a2-9a0dd2413c17" />
 # Kansokusha (観測者) ── Forensic Social Insights & AI Risk Analysis Platform
 
 **Kansokusha** (The Observer) is a premium, AI-driven digital forensics and open-source intelligence (OSINT) platform designed for deep behavioral auditing, psycholinguistic profiling, and risk analysis of public footprints.
